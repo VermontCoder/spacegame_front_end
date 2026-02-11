@@ -4,6 +4,10 @@ import adapter from "@sveltejs/adapter-node";
 const config = {
   kit: {
     adapter: adapter(),
+    env: {
+      publicPrefix: "",
+      privatePrefix: "PRIVATE_",
+    },
   },
 };
 

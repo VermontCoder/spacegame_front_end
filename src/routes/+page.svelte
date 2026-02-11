@@ -7,7 +7,7 @@
 
   onMount(async () => {
     try {
-      const res = await fetch(`${env.PUBLIC_API_URL}/users`);
+      const res = await fetch(`${env.FAST_API_URL}/users`);
       users = await res.json();
     } catch (e) {
       error = 'Failed to fetch users';
