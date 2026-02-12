@@ -42,8 +42,11 @@
     // Pan/zoom state
     let viewBox = $state({ x: 0, y: 0, w: 1000, h: 800 });
     let isPanning = $state(false);
+    let didDrag = $state(false);
     let panStartMouse = $state({ x: 0, y: 0 });
     let panStartViewBox = $state({ x: 0, y: 0 });
+
+    const DRAG_THRESHOLD = 4; // pixels before a mousedown counts as a drag
 
     function handleWheel(event) {
         event.preventDefault();
@@ -67,8 +70,9 @@
     }
 
     function handlePanStart(event) {
-        if (event.button !== 1 && !event.shiftKey) return; // Middle-click or shift+left
+        if (event.button !== 0) return; // Left-click only
         isPanning = true;
+        didDrag = false;
         panStartMouse = { x: event.clientX, y: event.clientY };
         panStartViewBox = { x: viewBox.x, y: viewBox.y };
         event.preventDefault();
@@ -76,15 +80,22 @@
 
     function handlePanMove(event) {
         if (!isPanning) return;
-        const svg = event.currentTarget;
-        const rect = svg.getBoundingClientRect();
-        const dx = (event.clientX - panStartMouse.x) / rect.width * viewBox.w;
-        const dy = (event.clientY - panStartMouse.y) / rect.height * viewBox.h;
-        viewBox = {
-            ...viewBox,
-            x: panStartViewBox.x - dx,
-            y: panStartViewBox.y - dy,
-        };
+        const dx = event.clientX - panStartMouse.x;
+        const dy = event.clientY - panStartMouse.y;
+        if (!didDrag && Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD) {
+            didDrag = true;
+        }
+        if (didDrag) {
+            const svg = event.currentTarget;
+            const rect = svg.getBoundingClientRect();
+            const svgDx = dx / rect.width * viewBox.w;
+            const svgDy = dy / rect.height * viewBox.h;
+            viewBox = {
+                ...viewBox,
+                x: panStartViewBox.x - svgDx,
+                y: panStartViewBox.y - svgDy,
+            };
+        }
     }
 
     function handlePanEnd() {
@@ -152,7 +163,7 @@
             {@const isHovered = hoveredSystem?.system_id === system.system_id}
             <g
                 class="system-node"
-                onclick={() => handleClick(system)}
+                onclick={() => { if (!didDrag) handleClick(system); }}
                 onkeydown={(e) => handleKeyDown(e, system)}
                 onmouseenter={(e) => handleMouseEnter(system, e)}
                 onmouseleave={handleMouseLeave}
