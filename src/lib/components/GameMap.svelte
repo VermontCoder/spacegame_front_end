@@ -6,15 +6,16 @@
         Object.fromEntries(systems.map(s => [s.system_id, s]))
     );
 
-    // Cluster colors for visual distinction
-    const CLUSTER_COLORS = [
+    // Player colors for owned systems
+    const PLAYER_COLORS = [
         '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
         '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
     ];
 
-    function clusterColor(clusterId) {
-        if (clusterId === -1) return '#f1c40f'; // Founder's World
-        return CLUSTER_COLORS[clusterId % CLUSTER_COLORS.length];
+    function systemColor(system) {
+        if (system.is_founders_world) return '#f1c40f';
+        if (system.owner_player_index != null) return PLAYER_COLORS[system.owner_player_index % PLAYER_COLORS.length];
+        return '#ffffff';
     }
 
     function systemRadius(system) {
@@ -189,7 +190,7 @@
                         cx={system.x}
                         cy={system.y}
                         r={systemRadius(system) + 3}
-                        fill={clusterColor(system.cluster_id)}
+                        fill={systemColor(system)}
                         opacity="0.3"
                     />
                 {/if}
@@ -199,7 +200,7 @@
                     cx={system.x}
                     cy={system.y}
                     r={systemRadius(system)}
-                    fill={clusterColor(system.cluster_id)}
+                    fill={systemColor(system)}
                     stroke={isSelected ? 'white' : '#222'}
                     stroke-width={isSelected ? 2 : 1}
                 />
