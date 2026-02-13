@@ -69,23 +69,22 @@
     label {
         display: flex;
         flex-direction: column;
-        color: #eee;
         font-size: 0.9rem;
     }
 
     input {
         padding: 6px 10px;
-        border: 1px solid #555;
+        border: 1px solid var(--color-border-light);
         border-radius: 4px;
-        background: #1a1a2e;
-        color: #eee;
+        background: var(--color-bg-panel);
+        color: var(--color-text);
         width: 80px;
         margin-top: 4px;
     }
 
     button {
         padding: 8px 16px;
-        background: #3498db;
+        background: var(--color-link);
         color: white;
         border: none;
         border-radius: 4px;
@@ -102,7 +101,7 @@
     }
 
     .error {
-        color: red;
+        color: var(--color-error);
         margin-top: 1rem;
     }
 </style>

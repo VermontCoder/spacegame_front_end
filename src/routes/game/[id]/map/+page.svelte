@@ -60,12 +60,11 @@
     }
 
     h1 {
-        color: #eee;
         margin-bottom: 1rem;
     }
 
     .error {
-        color: red;
+        color: var(--color-error);
     }
 
     .map-layout {
@@ -75,18 +74,17 @@
     }
 
     .info-panel {
-        background: #1a1a2e;
-        border: 1px solid #333;
+        background: var(--color-bg-panel);
+        border: 1px solid var(--color-border);
         border-radius: 8px;
         padding: 1rem;
         min-width: 200px;
-        color: #eee;
     }
 
     .info-panel h2 {
         margin: 0 0 0.5rem;
         font-size: 1.1rem;
-        color: #f1c40f;
+        color: var(--color-accent);
     }
 
     .info-panel dl {
@@ -94,7 +92,7 @@
     }
 
     .info-panel dt {
-        color: #888;
+        color: var(--color-text-dim);
         font-size: 0.85rem;
         margin-top: 0.5rem;
     }
@@ -105,7 +103,7 @@
     }
 
     .stats {
-        color: #666;
+        color: var(--color-text-faint);
         font-size: 0.85rem;
         margin-top: 0.5rem;
     }
