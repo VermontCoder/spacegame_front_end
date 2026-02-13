@@ -261,7 +261,7 @@
                     y={system.y + systemRadius(system) + 12}
                     text-anchor="middle"
                     fill="var(--color-text-muted)"
-                    font-size="8"
+                    font-size="11"
                     font-family="sans-serif"
                 >{system.name}</text>
             </g>
