@@ -19,10 +19,95 @@
     }
 
     function systemRadius(system) {
-        if (system.is_founders_world) return 12;
-        if (system.is_home_system) return 9;
-        return 6;
+        if (system.is_founders_world) return 18;
+        if (system.is_home_system) return 14;
+        return 10;
     }
+
+    // --- Label placement: pick best position (below/above/left/right) to avoid overlap ---
+    const LABEL_FONT_SIZE = 11;
+    const CHAR_WIDTH = 6;       // approximate width per character at font-size 11
+    const LABEL_HEIGHT = 13;    // approximate line height
+    const LABEL_GAP = 4;        // gap between circle edge and label
+
+    // Candidate positions: returns { x, y, anchor } for the text element
+    function labelCandidates(sys) {
+        const r = systemRadius(sys);
+        return [
+            { key: 'below', x: sys.x, y: sys.y + r + LABEL_GAP + LABEL_HEIGHT, anchor: 'middle' },
+            { key: 'above', x: sys.x, y: sys.y - r - LABEL_GAP, anchor: 'middle' },
+            { key: 'right', x: sys.x + r + LABEL_GAP, y: sys.y + 4, anchor: 'start' },
+            { key: 'left',  x: sys.x - r - LABEL_GAP, y: sys.y + 4, anchor: 'end' },
+        ];
+    }
+
+    // Bounding box of a label candidate
+    function labelBBox(cand, nameLen) {
+        const w = nameLen * CHAR_WIDTH;
+        let lx;
+        if (cand.anchor === 'middle') lx = cand.x - w / 2;
+        else if (cand.anchor === 'start') lx = cand.x;
+        else lx = cand.x - w;
+        return { x: lx, y: cand.y - LABEL_HEIGHT, w, h: LABEL_HEIGHT };
+    }
+
+    // Check overlap between two rectangles
+    function rectsOverlap(a, b) {
+        return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+
+    // Circle-rect overlap check
+    function circleRectOverlap(cx, cy, cr, rect) {
+        const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+        const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+        const dx = cx - closestX;
+        const dy = cy - closestY;
+        return dx * dx + dy * dy < cr * cr;
+    }
+
+    // Compute label placements for all systems
+    let labelPlacements = $derived.by(() => {
+        if (!systems || systems.length === 0) return {};
+        const placements = {};   // system_id -> { x, y, anchor }
+        const placedBoxes = [];  // bounding boxes of already-placed labels
+
+        for (const sys of systems) {
+            const candidates = labelCandidates(sys);
+            let bestCand = candidates[0]; // default: below
+            let bestPenalty = Infinity;
+
+            for (const cand of candidates) {
+                const bbox = labelBBox(cand, sys.name.length);
+                let penalty = 0;
+
+                // Penalize overlap with any system circle
+                for (const other of systems) {
+                    if (other.system_id === sys.system_id) continue;
+                    const or_ = systemRadius(other);
+                    if (circleRectOverlap(other.x, other.y, or_ + 2, bbox)) {
+                        penalty += 100;
+                    }
+                }
+
+                // Penalize overlap with already-placed labels
+                for (const placed of placedBoxes) {
+                    if (rectsOverlap(bbox, placed)) {
+                        penalty += 50;
+                    }
+                }
+
+                if (penalty < bestPenalty) {
+                    bestPenalty = penalty;
+                    bestCand = cand;
+                }
+            }
+
+            placements[sys.system_id] = bestCand;
+            placedBoxes.push(labelBBox(bestCand, sys.name.length));
+        }
+
+        return placements;
+    });
 
     // Hover and selection state
     let hoveredSystem = $state(null);
@@ -199,6 +284,7 @@
         {#each systems as system (system.system_id)}
             {@const isSelected = selectedSystem?.system_id === system.system_id}
             {@const isHovered = hoveredSystem?.system_id === system.system_id}
+            {@const lbl = labelPlacements[system.system_id]}
             <g
                 class="system-node"
                 onclick={() => { if (!didDrag) handleClick(system); }}
@@ -242,28 +328,31 @@
                     stroke-width={isSelected ? 2 : 1}
                 />
 
-                <!-- Mining value indicator -->
-                {#if system.is_founders_world}
-                    <text
-                        x={system.x}
-                        y={system.y + 1}
-                        text-anchor="middle"
-                        dominant-baseline="middle"
-                        fill="black"
-                        font-size="8"
-                        font-weight="bold"
-                    >FW</text>
-                {/if}
-
-                <!-- System name label -->
+                <!-- Mining value label (centered on system) -->
                 <text
                     x={system.x}
-                    y={system.y + systemRadius(system) + 12}
+                    y={system.y + 1}
                     text-anchor="middle"
-                    fill="var(--color-text-muted)"
-                    font-size="11"
-                    font-family="sans-serif"
-                >{system.name}</text>
+                    dominant-baseline="middle"
+                    fill="black"
+                    font-size={system.is_founders_world ? 12 : 10}
+                    font-weight="bold"
+                >{system.is_founders_world ? 'FW' : system.mining_value}</text>
+
+                <!-- System name label (dynamically placed to avoid overlap) -->
+                {#if lbl}
+                    <text
+                        x={lbl.x}
+                        y={lbl.y}
+                        text-anchor={lbl.anchor}
+                        fill="var(--color-text-muted)"
+                        stroke="var(--color-map-bg)"
+                        stroke-width="4"
+                        paint-order="stroke"
+                        font-size="11"
+                        font-family="sans-serif"
+                    >{system.name}</text>
+                {/if}
             </g>
         {/each}
     </svg>
