@@ -1,6 +1,12 @@
 <script>
+  import { onMount } from 'svelte';
+  import { initAuth } from '$lib/auth.svelte.js';
   import Header from "./Header.svelte";
   import "./styles.css";
+
+  onMount(() => {
+    initAuth();
+  });
 </script>
 
 <div class="app">
@@ -38,10 +44,6 @@
     justify-content: center;
     align-items: center;
     padding: 12px;
-  }
-
-  footer a {
-    font-weight: bold;
   }
 
   @media (min-width: 480px) {

@@ -30,6 +30,8 @@
                     <dl>
                         <dt>Mining Value</dt>
                         <dd>{selectedSystem.mining_value}</dd>
+                        <dt>Materials</dt>
+                        <dd>{selectedSystem.materials ?? 0}</dd>
                         <dt>Cluster</dt>
                         <dd>{selectedSystem.cluster_id === -1 ? 'Center' : selectedSystem.cluster_id}</dd>
                         {#if selectedSystem.is_founders_world}

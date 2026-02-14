@@ -19,9 +19,9 @@
     }
 
     function systemRadius(system) {
-        if (system.is_founders_world) return 18;
-        if (system.is_home_system) return 14;
-        return 10;
+        if (system.is_founders_world) return 27;
+        if (system.is_home_system) return 21;
+        return 15;
     }
 
     // --- Label placement: pick best position (below/above/left/right) to avoid overlap ---
@@ -328,16 +328,63 @@
                     stroke-width={isSelected ? 2 : 1}
                 />
 
-                <!-- Mining value label (centered on system) -->
-                <text
-                    x={system.x}
-                    y={system.y + 1}
-                    text-anchor="middle"
-                    dominant-baseline="middle"
-                    fill="black"
-                    font-size={system.is_founders_world ? 12 : 10}
-                    font-weight="bold"
-                >{system.is_founders_world ? 'FW' : system.mining_value}</text>
+                <!-- System label (centered on system) -->
+                {#if system.is_founders_world}
+                    <text
+                        x={system.x}
+                        y={system.y + 1}
+                        text-anchor="middle"
+                        dominant-baseline="middle"
+                        fill="black"
+                        font-size="16"
+                        font-weight="bold"
+                    >FW</text>
+                {:else}
+                    {@const fontSize = system.is_home_system ? 11 : 9}
+                    {@const iconW = system.is_home_system ? 10 : 8}
+                    {@const charW = fontSize * 0.6}
+                    {@const gap = 1}
+                    {@const rowSpacing = system.is_home_system ? 14 : 11}
+                    {@const miningDigits = String(system.mining_value).length}
+                    {@const matDigits = String(system.materials ?? 0).length}
+                    {@const miningTotalW = iconW + gap + miningDigits * charW}
+                    {@const matTotalW = iconW + gap + matDigits * charW}
+                    <!-- Mining value row (pickaxe + number) -->
+                    <g transform="translate({system.x - miningTotalW / 2}, {system.y - rowSpacing / 2 - iconW * 0.35})">
+                        <!-- Pickaxe icon: handle going down-left, head tilted right -->
+                        <g transform="scale({iconW / 12})">
+                            <line x1="10" y1="1" x2="2" y2="9" stroke="black" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M7 0L11.5 1L10 5L8.5 3.2Z" fill="black" opacity="0.85"/>
+                        </g>
+                        <text
+                            x={iconW + gap}
+                            y={iconW * 0.5}
+                            text-anchor="start"
+                            dominant-baseline="middle"
+                            fill="black"
+                            font-size={fontSize}
+                            font-weight="bold"
+                        >{system.mining_value}</text>
+                    </g>
+                    <!-- Materials row (cubes + number) -->
+                    <g transform="translate({system.x - matTotalW / 2}, {system.y + rowSpacing / 2 - iconW * 0.65})">
+                        <!-- Stacked cubes icon -->
+                        <g transform="scale({iconW / 12})">
+                            <rect x="0" y="6" width="6" height="5" rx="0.5" fill="black" opacity="0.8"/>
+                            <rect x="4" y="3" width="6" height="5" rx="0.5" fill="black" opacity="0.6"/>
+                            <rect x="1.5" y="0" width="6" height="5" rx="0.5" fill="black" opacity="0.4"/>
+                        </g>
+                        <text
+                            x={iconW + gap}
+                            y={iconW * 0.5}
+                            text-anchor="start"
+                            dominant-baseline="middle"
+                            fill="black"
+                            font-size={fontSize}
+                            font-weight="bold"
+                        >{system.materials ?? 0}</text>
+                    </g>
+                {/if}
 
                 <!-- System name label (dynamically placed to avoid overlap) -->
                 {#if lbl}
@@ -367,6 +414,7 @@
         >
             <strong>{hoveredSystem.name}</strong>
             <div>Mining: {hoveredSystem.mining_value}</div>
+            <div>Materials: {hoveredSystem.materials ?? 0}</div>
             {#if hoveredSystem.is_founders_world}
                 <div class="special">Founder's World</div>
             {:else if hoveredSystem.is_home_system}

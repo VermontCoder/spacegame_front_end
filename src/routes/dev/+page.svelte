@@ -1,18 +1,27 @@
 <script>
-    import { env } from '$env/dynamic/public';
     import { goto } from '$app/navigation';
+    import { isAuthenticated, isLoading, apiFetch } from '$lib/auth.svelte.js';
 
     let numPlayers = $state(4);
     let seed = $state(42);
     let loading = $state(false);
     let error = $state('');
 
+    let authenticated = $derived(isAuthenticated());
+    let authLoading = $derived(isLoading());
+
+    $effect(() => {
+        if (!authLoading && !authenticated) {
+            goto('/');
+        }
+    });
+
     async function createAndGenerate() {
         loading = true;
         error = '';
         try {
             // Create game
-            const gameRes = await fetch(`${env.FAST_API_URL}/games`, {
+            const gameRes = await apiFetch('/games', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: `Dev Game ${Date.now()}`, num_players: numPlayers }),
@@ -21,7 +30,7 @@
             const game = await gameRes.json();
 
             // Generate map
-            const mapRes = await fetch(`${env.FAST_API_URL}/games/${game.game_id}/generate-map`, {
+            const mapRes = await apiFetch(`/games/${game.game_id}/generate-map`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ seed }),
@@ -30,7 +39,7 @@
 
             // Navigate to map
             goto(`/game/${game.game_id}/map`);
-        } catch (e) {
+        } catch (/** @type {any} */ e) {
             error = e.message;
         } finally {
             loading = false;
@@ -38,24 +47,28 @@
     }
 </script>
 
-<h1>Dev Tools</h1>
+{#if authLoading}
+    <p>Loading...</p>
+{:else if authenticated}
+    <h1>Dev Tools</h1>
 
-<div class="form">
-    <label>
-        Players:
-        <input type="number" bind:value={numPlayers} min="2" max="8" />
-    </label>
-    <label>
-        Seed:
-        <input type="number" bind:value={seed} />
-    </label>
-    <button onclick={createAndGenerate} disabled={loading}>
-        {loading ? 'Generating...' : 'Create Game & Generate Map'}
-    </button>
-</div>
+    <div class="form">
+        <label>
+            Players:
+            <input type="number" bind:value={numPlayers} min="2" max="8" />
+        </label>
+        <label>
+            Seed:
+            <input type="number" bind:value={seed} />
+        </label>
+        <button onclick={createAndGenerate} disabled={loading}>
+            {loading ? 'Generating...' : 'Create Game & Generate Map'}
+        </button>
+    </div>
 
-{#if error}
-    <p class="error">{error}</p>
+    {#if error}
+        <p class="error">{error}</p>
+    {/if}
 {/if}
 
 <style>
