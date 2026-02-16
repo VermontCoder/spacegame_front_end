@@ -1,20 +1,58 @@
 <script>
-    let { systems = [], jumpLines = [], onSelectSystem = () => {} } = $props();
+    let {
+        systems = [],
+        jumpLines = [],
+        ships = [],
+        structures = [],
+        players = [],
+        onSelectSystem = () => {},
+    } = $props();
 
     // Build a lookup from system_id to system object for jump line rendering
     let systemLookup = $derived(
         Object.fromEntries(systems.map(s => [s.system_id, s]))
     );
 
-    // Player colors for owned systems
-    const PLAYER_COLORS = [
-        '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
-        '#9b59b6', '#1abc9c', '#e67e22', '#34495e',
-    ];
+    // Player lookup by player_index
+    let playerLookup = $derived(
+        Object.fromEntries(players.map(p => [p.player_index, p]))
+    );
+
+    // Ships grouped by system_id
+    let shipsBySystem = $derived(() => {
+        const map = {};
+        for (const sh of ships) {
+            if (!map[sh.system_id]) map[sh.system_id] = [];
+            map[sh.system_id].push(sh);
+        }
+        return map;
+    });
+
+    // Structures grouped by system_id
+    let structsBySystem = $derived(() => {
+        const map = {};
+        for (const st of structures) {
+            if (!map[st.system_id]) map[st.system_id] = [];
+            map[st.system_id].push(st);
+        }
+        return map;
+    });
+
+    function playerColor(playerIndex) {
+        if (playerIndex === -1) return '#888888'; // neutral
+        const p = playerLookup[playerIndex];
+        return p ? p.color : '#888888';
+    }
+
+    function playerName(playerIndex) {
+        if (playerIndex === -1) return 'Neutral';
+        const p = playerLookup[playerIndex];
+        return p ? p.username : `Player ${playerIndex}`;
+    }
 
     function systemColor(system) {
         if (system.is_founders_world) return 'var(--color-accent)';
-        if (system.owner_player_index != null) return PLAYER_COLORS[system.owner_player_index % PLAYER_COLORS.length];
+        if (system.owner_player_index != null) return playerColor(system.owner_player_index);
         return '#ffffff';
     }
 
@@ -127,7 +165,7 @@
 
     // Compute initial viewBox from system bounding box
     const PADDING = 60;
-    const ASPECT = 1000 / 800; // match the aspect-ratio in CSS
+    const ASPECT = 1440 / 840; // match the aspect-ratio in CSS
 
     function computeFitViewBox(sysList) {
         if (!sysList || sysList.length === 0) return { x: 0, y: 0, w: 1000, h: 800 };
@@ -246,10 +284,96 @@
     function handleMouseLeave() {
         hoveredSystem = null;
     }
+
+    // --- Chit position helpers (viewBox coords → screen px) ---
+    // Chit positions around the circle (in viewBox-space offsets from system center)
+    // Mine at 8 o'clock, yard at 4 o'clock, ships at 12 o'clock
+    const CHIT_SIZE = 14; // viewBox units for mine/yard chit dimensions
+
+    function chitPositions(system) {
+        const r = systemRadius(system);
+        const offset = r + 2;
+        return {
+            mine:     { dx: -offset * Math.cos(Math.PI / 6), dy: offset * Math.sin(Math.PI / 6) },   // 8 o'clock
+            shipyard: { dx: offset * Math.cos(Math.PI / 6),  dy: offset * Math.sin(Math.PI / 6) },    // 4 o'clock
+            ships:    { dx: 0, dy: -offset },                                                          // 12 o'clock
+        };
+    }
+
+    // Convert viewBox coords to screen pixel coords relative to the map-wrapper
+    let svgElement = $state(null);
+
+    function viewBoxToScreen(vbX, vbY) {
+        if (!svgElement) return { x: 0, y: 0 };
+        const rect = svgElement.getBoundingClientRect();
+        const vb = activeViewBox;
+        return {
+            x: (vbX - vb.x) / vb.w * rect.width,
+            y: (vbY - vb.y) / vb.h * rect.height,
+        };
+    }
+
+    // Chit scale factor (viewBox units → screen px)
+    function chitScale() {
+        if (!svgElement) return 1;
+        const rect = svgElement.getBoundingClientRect();
+        return rect.width / activeViewBox.w;
+    }
+
+    // Reactive chit data: combine system positions with ship/structure data
+    let chitData = $derived.by(() => {
+        const shipsMap = shipsBySystem();
+        const structsMap = structsBySystem();
+        const result = [];
+
+        for (const sys of systems) {
+            const sysShips = shipsMap[sys.system_id] || [];
+            const sysStructs = structsMap[sys.system_id] || [];
+            const positions = chitPositions(sys);
+
+            const mines = sysStructs.filter(s => s.structure_type === 'mine');
+            const yards = sysStructs.filter(s => s.structure_type === 'shipyard');
+
+            for (const mine of mines) {
+                result.push({
+                    type: 'mine',
+                    system: sys,
+                    playerIndex: mine.player_index,
+                    pos: positions.mine,
+                });
+            }
+            for (const yard of yards) {
+                result.push({
+                    type: 'shipyard',
+                    system: sys,
+                    playerIndex: yard.player_index,
+                    pos: positions.shipyard,
+                });
+            }
+            for (const ship of sysShips) {
+                if (ship.count > 0) {
+                    result.push({
+                        type: 'ships',
+                        system: sys,
+                        playerIndex: ship.player_index,
+                        count: ship.count,
+                        pos: positions.ships,
+                    });
+                }
+            }
+        }
+        return result;
+    });
+
+    // Force re-render chits on viewBox change
+    let chitVersion = $derived(
+        activeViewBox ? `${activeViewBox.x}-${activeViewBox.y}-${activeViewBox.w}` : '0'
+    );
 </script>
 
 <div class="map-wrapper">
     <svg
+        bind:this={svgElement}
         viewBox="{activeViewBox.x} {activeViewBox.y} {activeViewBox.w} {activeViewBox.h}"
         xmlns="http://www.w3.org/2000/svg"
         class="star-map"
@@ -406,8 +530,53 @@
 
     <button class="reset-btn" onclick={resetView}>Reset View</button>
 
+    <!-- Game chits (HTML overlays positioned over SVG) -->
+    {#key chitVersion}
+        {#each chitData as chit}
+            {@const screenPos = viewBoxToScreen(chit.system.x + chit.pos.dx, chit.system.y + chit.pos.dy)}
+            {@const scale = chitScale()}
+            {@const size = CHIT_SIZE * scale}
+            {@const digits = chit.type === 'ships' ? String(chit.count).length : 0}
+            {@const shipH = size * 1.5}
+            {@const shipW = shipH + digits * shipH * 0.45}
+            {@const chitW = chit.type === 'ships' ? shipW : size}
+            {@const chitH = chit.type === 'ships' ? shipH : size}
+            <div
+                class="chit chit-{chit.type}"
+                style="
+                    left: {screenPos.x - chitW / 2}px;
+                    top: {screenPos.y - chitH / 2}px;
+                    width: {chitW}px;
+                    height: {chitH}px;
+                    background: {playerColor(chit.playerIndex)};
+                    font-size: {Math.max(9, chitH * 0.55)}px;
+                "
+                title="{chit.type === 'ships' ? `${chit.count} ships (${playerName(chit.playerIndex)})` : `${chit.type} (${playerName(chit.playerIndex)})`}"
+            >
+                {#if chit.type === 'mine'}
+                    <svg viewBox="0 0 16 16" class="chit-icon">
+                        <line x1="12" y1="2" x2="4" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                        <path d="M9 1L14 2L12 7L10 4.5Z" fill="currentColor"/>
+                    </svg>
+                {:else if chit.type === 'shipyard'}
+                    <svg viewBox="0 0 16 16" class="chit-icon">
+                        <rect x="2" y="8" width="12" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <polygon points="8,2 13,8 3,8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                {:else if chit.type === 'ships'}
+                    <svg viewBox="0 0 20 28" class="ship-icon">
+                        <path d="M10 1 C10 1, 6 7, 6 14 L6 20 L3.5 24 L3.5 27 L7 23.5 L7 27 L8.5 25 L10 27 L11.5 25 L13 27 L13 23.5 L16.5 27 L16.5 24 L14 20 L14 14 C14 7, 10 1, 10 1Z" fill="white"/>
+                    </svg>
+                    <span class="ship-count">{chit.count}</span>
+                {/if}
+            </div>
+        {/each}
+    {/key}
+
     <!-- Tooltip overlay (HTML positioned over SVG) -->
     {#if hoveredSystem}
+        {@const sysShips = shipsBySystem()[hoveredSystem.system_id] || []}
+        {@const sysStructs = structsBySystem()[hoveredSystem.system_id] || []}
         <div
             class="tooltip"
             style="left: {tooltipX + 15}px; top: {tooltipY - 10}px;"
@@ -418,8 +587,18 @@
             {#if hoveredSystem.is_founders_world}
                 <div class="special">Founder's World</div>
             {:else if hoveredSystem.is_home_system}
-                <div class="special">Home System (Player {hoveredSystem.owner_player_index + 1})</div>
+                <div class="special">Home ({playerName(hoveredSystem.owner_player_index)})</div>
+            {:else if hoveredSystem.owner_player_index != null}
+                <div class="special">Owner: {playerName(hoveredSystem.owner_player_index)}</div>
             {/if}
+            {#each sysShips as sh}
+                {#if sh.count > 0}
+                    <div class="tooltip-piece">Ships: {sh.count} ({playerName(sh.player_index)})</div>
+                {/if}
+            {/each}
+            {#each sysStructs as st}
+                <div class="tooltip-piece">{st.structure_type} ({playerName(st.player_index)})</div>
+            {/each}
         </div>
     {/if}
 </div>
@@ -428,16 +607,17 @@
     .map-wrapper {
         position: relative;
         width: 100%;
-        max-width: 1000px;
-        aspect-ratio: 1000 / 800;
+        max-width: 1440px;
+        aspect-ratio: 1440 / 840;
         margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
     }
 
     .star-map {
         width: 100%;
         height: 100%;
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
         cursor: grab;
     }
 
@@ -467,6 +647,47 @@
         background: var(--color-bg-panel-hover);
     }
 
+    /* Chit overlays */
+    .chit {
+        position: absolute;
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 4;
+        border: 1px solid rgba(0,0,0,0.3);
+        color: white;
+        text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+    }
+
+    .chit-icon {
+        width: 70%;
+        height: 70%;
+        color: white;
+    }
+
+    .chit-ships {
+        border-radius: 4px;
+        flex-direction: row;
+        gap: 1px;
+        padding: 0 2px;
+        border: 1.5px solid rgba(255,255,255,0.5);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .ship-icon {
+        height: 80%;
+        width: auto;
+        flex-shrink: 0;
+    }
+
+    .ship-count {
+        font-weight: 900;
+        line-height: 1;
+        color: white;
+    }
+
     .tooltip {
         position: absolute;
         background: var(--color-bg-panel);
@@ -484,5 +705,11 @@
         color: var(--color-accent);
         font-size: 11px;
         margin-top: 2px;
+    }
+
+    .tooltip .tooltip-piece {
+        font-size: 11px;
+        color: var(--color-text-dim);
+        margin-top: 1px;
     }
 </style>
