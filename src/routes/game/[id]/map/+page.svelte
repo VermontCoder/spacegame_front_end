@@ -231,6 +231,18 @@
         structsAtSelected.some(s => s.structure_type === 'shipyard' && s.player_index === currentPlayerIndex)
     );
 
+    // Pending build orders for the selected system
+    let mineOrderAtSelected = $derived(
+        selectedSystem != null && getOrders().some(o =>
+            o.order_type === 'build_mine' && o.source_system_id === selectedSystem.system_id
+        )
+    );
+    let yardOrderAtSelected = $derived(
+        selectedSystem != null && getOrders().some(o =>
+            o.order_type === 'build_shipyard' && o.source_system_id === selectedSystem.system_id
+        )
+    );
+
     // Check if current player owns or has presence in the selected system
     let isMySystem = $derived(
         selectedSystem?.owner_player_index === currentPlayerIndex
@@ -491,10 +503,10 @@
                                 Move Ships
                             </button>
                         {/if}
-                        {#if !myMineAtSelected}
+                        {#if !myMineAtSelected && !mineOrderAtSelected}
                             <button class="action-btn" onclick={startMineFunding}>Build Mine</button>
                         {/if}
-                        {#if !myYardAtSelected}
+                        {#if myMineAtSelected && !myYardAtSelected && !yardOrderAtSelected}
                             <button class="action-btn" onclick={handleBuildShipyard}>Build Shipyard</button>
                         {/if}
                         {#if myYardAtSelected}
