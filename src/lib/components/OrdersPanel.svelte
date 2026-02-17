@@ -20,7 +20,16 @@
             return `Move ${order.quantity} ship${order.quantity !== 1 ? 's' : ''}: ${sourceName} → ${targetName}`;
         }
         if (order.order_type === 'build_mine') {
-            return `Build Mine at ${sourceName}`;
+            const sources = (order.material_sources ?? [])
+                .filter(ms => ms.amount > 0)
+                .map(ms => {
+                    const sys = systemLookup[ms.system_id];
+                    return `${ms.amount} from ${sys?.name ?? `System ${ms.system_id}`}`;
+                })
+                .join(', ');
+            return sources
+                ? `Build Mine at ${sourceName} (${sources})`
+                : `Build Mine at ${sourceName}`;
         }
         if (order.order_type === 'build_shipyard') {
             return `Build Shipyard at ${sourceName}`;

@@ -12,7 +12,9 @@
 
     let selectedSystem = $state(null);
     let moveSourceSystem = $state(null);
-    let interactionMode = $state('select'); // 'select' | 'move_target'
+    let mineTargetSystem = $state(null);
+    let mineFunding = $state({}); // system_id → allocated amount
+    let interactionMode = $state('select'); // 'select' | 'move_target' | 'mine_funding'
     let orderError = $state(null);
     let hoveredOrderId = $state(null);
     let turnStatuses = $state([]);
@@ -54,6 +56,19 @@
         if (interactionMode !== 'move_target' || !moveSourceSystem) return new Set();
         const adj = adjacency[moveSourceSystem.system_id];
         return adj ?? new Set();
+    });
+
+    // Mine funding
+    let mineFundingTotal = $derived(Object.values(mineFunding).reduce((s, v) => s + v, 0));
+    let eligibleFundingSystems = $derived.by(() => {
+        if (interactionMode !== 'mine_funding' || !mineTargetSystem) return [];
+        return (mapData?.systems ?? [])
+            .filter(s =>
+                s.system_id !== mineTargetSystem.system_id
+                && s.owner_player_index === currentPlayerIndex
+                && s.materials > 0
+            )
+            .sort((a, b) => b.materials - a.materials);
     });
 
     // Ships the current player has at the selected system
@@ -120,6 +135,10 @@
             }
             return;
         }
+        if (interactionMode === 'mine_funding') {
+            // Clicks on the map are ignored while allocating mine materials
+            return;
+        }
         selectedSystem = system;
         interactionMode = 'select';
         moveSourceSystem = null;
@@ -156,23 +175,47 @@
         moveSourceSystem = null;
     }
 
-    async function handleBuildMine() {
-        if (!selectedSystem) return;
-        orderError = null;
-        // Find the player's system (not this one) with the most available materials (≥15)
-        const candidateSystems = (mapData?.systems ?? [])
-            .filter(s => s.system_id !== selectedSystem.system_id && s.owner_player_index === currentPlayerIndex && s.materials >= 15)
-            .sort((a, b) => b.materials - a.materials);
-        if (candidateSystems.length === 0) {
-            orderError = 'No owned system has 15+ materials to fund this mine.';
-            return;
+    function startMineFunding() {
+        if (!selectedSystem || isSubmitted()) return;
+        mineTargetSystem = selectedSystem;
+        mineFunding = {};
+        interactionMode = 'mine_funding';
+    }
+
+    function cancelMineFunding() {
+        mineTargetSystem = null;
+        mineFunding = {};
+        interactionMode = 'select';
+    }
+
+    function adjustFunding(systemId, delta) {
+        const current = mineFunding[systemId] ?? 0;
+        const sys = mapData?.systems?.find(s => s.system_id === systemId);
+        const available = sys?.materials ?? 0;
+        if (delta > 0) {
+            const remaining = 15 - mineFundingTotal;
+            const maxAdd = Math.min(remaining, available - current);
+            if (maxAdd <= 0) return;
+            mineFunding = { ...mineFunding, [systemId]: current + 1 };
+        } else {
+            if (current <= 0) return;
+            mineFunding = { ...mineFunding, [systemId]: current - 1 };
         }
+    }
+
+    async function issueMineBuild() {
+        if (!mineTargetSystem || mineFundingTotal !== 15) return;
+        orderError = null;
+        const sources = Object.entries(mineFunding)
+            .filter(([, amt]) => amt > 0)
+            .map(([sid, amt]) => ({ system_id: parseInt(sid), amount: amt }));
         try {
             await createOrder(gameId, turnId, {
                 order_type: 'build_mine',
-                source_system_id: selectedSystem.system_id,
-                material_sources: [{ system_id: candidateSystems[0].system_id, amount: 15 }],
+                source_system_id: mineTargetSystem.system_id,
+                material_sources: sources,
             });
+            cancelMineFunding();
         } catch (e) {
             orderError = e.message;
         }
@@ -251,6 +294,11 @@
                 {hoveredOrderId}
                 {currentPlayerIndex}
                 onSelectSystem={handleSelectSystem}
+                mineFundingMode={interactionMode === 'mine_funding'}
+                mineTargetSystemId={mineTargetSystem?.system_id ?? null}
+                {eligibleFundingSystems}
+                {mineFunding}
+                onAdjustFunding={adjustFunding}
             />
 
             <aside class="sidebar">
@@ -282,7 +330,7 @@
                             </button>
                         {/if}
                         {#if !myMineAtSelected}
-                            <button class="action-btn" onclick={handleBuildMine}>Build Mine</button>
+                            <button class="action-btn" onclick={startMineFunding}>Build Mine</button>
                         {/if}
                         {#if !myYardAtSelected}
                             <button class="action-btn" onclick={handleBuildShipyard}>Build Shipyard</button>
@@ -297,6 +345,24 @@
                     <div class="actions-panel move-prompt">
                         <p>Select a destination system</p>
                         <button class="action-btn cancel-move" onclick={cancelMoveMode}>Cancel Move</button>
+                    </div>
+                {/if}
+
+                {#if interactionMode === 'mine_funding'}
+                    <div class="actions-panel mine-funding-panel">
+                        <p class="funding-title">Funding Mine at <strong>{mineTargetSystem?.name}</strong></p>
+                        <p class="funding-progress" class:ready={mineFundingTotal === 15}>
+                            {mineFundingTotal} / 15 materials
+                        </p>
+                        {#if eligibleFundingSystems.length === 0}
+                            <p class="funding-empty">No systems with available materials.</p>
+                        {/if}
+                        <button
+                            class="action-btn issue-mine-btn"
+                            onclick={issueMineBuild}
+                            disabled={mineFundingTotal !== 15}
+                        >Issue Order</button>
+                        <button class="action-btn cancel-move" onclick={cancelMineFunding}>Cancel</button>
                     </div>
                 {/if}
 
@@ -432,5 +498,37 @@
     .cancel-move {
         color: var(--color-error);
         border-color: var(--color-error);
+    }
+
+    .funding-title {
+        margin: 0 0 0.3rem;
+        font-size: 0.85rem;
+    }
+
+    .funding-progress {
+        margin: 0 0 0.5rem;
+        font-size: 0.95rem;
+        font-weight: bold;
+        color: var(--color-text-dim);
+    }
+
+    .funding-progress.ready {
+        color: #2ecc71;
+    }
+
+    .funding-empty {
+        margin: 0 0 0.5rem;
+        font-size: 0.8rem;
+        color: var(--color-text-dim);
+    }
+
+    .issue-mine-btn {
+        color: #2ecc71;
+        border-color: #2ecc71;
+    }
+
+    .issue-mine-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
     }
 </style>

@@ -11,6 +11,11 @@
         hoveredOrderId = null,
         currentPlayerIndex = null,
         onSelectSystem = () => {},
+        mineFundingMode = false,
+        mineTargetSystemId = null,
+        eligibleFundingSystems = [],
+        mineFunding = {},
+        onAdjustFunding = () => {},
     } = $props();
 
     // Build a lookup from system_id to system object for jump line rendering
@@ -488,6 +493,37 @@
             {/if}
         {/each}
 
+        <!-- Mine funding mode: target highlight + eligible system rings -->
+        {#if mineFundingMode}
+            {#if mineTargetSystemId}
+                {@const tgt = systemLookup[mineTargetSystemId]}
+                {#if tgt}
+                    <circle
+                        cx={tgt.x}
+                        cy={tgt.y}
+                        r={systemRadius(tgt) + 8}
+                        fill="none"
+                        stroke="#f39c12"
+                        stroke-width="2.5"
+                        stroke-dasharray="5 3"
+                        class="source-glow"
+                    />
+                {/if}
+            {/if}
+            {#each eligibleFundingSystems as sys}
+                {@const alloc = mineFunding[sys.system_id] ?? 0}
+                <circle
+                    cx={sys.x}
+                    cy={sys.y}
+                    r={systemRadius(sys) + 6}
+                    fill="none"
+                    stroke={alloc > 0 ? '#2ecc71' : 'rgba(46,204,113,0.5)'}
+                    stroke-width={alloc > 0 ? 2 : 1.5}
+                    stroke-dasharray={alloc > 0 ? 'none' : '4 3'}
+                />
+            {/each}
+        {/if}
+
         <!-- Star systems -->
         {#each systems as system (system.system_id)}
             {@const isSelected = selectedSystem?.system_id === system.system_id}
@@ -738,6 +774,34 @@
         {/each}
     {/key}
 
+    <!-- Mine funding counters (HTML overlays, pointer-events enabled) -->
+    {#if mineFundingMode}
+        {#key chitVersion}
+            {#each eligibleFundingSystems as sys}
+                {@const alloc = mineFunding[sys.system_id] ?? 0}
+                {@const total = Object.values(mineFunding).reduce((s, v) => s + v, 0)}
+                {@const r = systemRadius(sys)}
+                {@const pos = viewBoxToScreen(sys.x, sys.y + r + 12)}
+                <div
+                    class="fund-counter"
+                    style="left: {pos.x}px; top: {pos.y}px;"
+                >
+                    <button
+                        class="fund-btn"
+                        onclick={() => onAdjustFunding(sys.system_id, -1)}
+                        disabled={alloc <= 0}
+                    >−</button>
+                    <span class="fund-amount" class:funded={alloc > 0}>{alloc}</span>
+                    <button
+                        class="fund-btn"
+                        onclick={() => onAdjustFunding(sys.system_id, +1)}
+                        disabled={total >= 15 || alloc >= sys.materials}
+                    >+</button>
+                </div>
+            {/each}
+        {/key}
+    {/if}
+
     <!-- Tooltip overlay (HTML positioned over SVG) -->
     {#if hoveredSystem}
         {@const sysShips = shipsBySystem()[hoveredSystem.system_id] || []}
@@ -929,5 +993,50 @@
     .tt-chit-icon {
         width: 70%;
         height: 70%;
+    }
+
+    /* Mine funding counters */
+    .fund-counter {
+        position: absolute;
+        transform: translate(-50%, 0);
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: var(--color-bg-panel);
+        border: 1.5px solid #2ecc71;
+        border-radius: 4px;
+        padding: 1px 4px;
+        z-index: 6;
+        pointer-events: auto;
+        white-space: nowrap;
+    }
+
+    .fund-btn {
+        background: none;
+        border: none;
+        color: var(--color-text);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        line-height: 1;
+        padding: 0 2px;
+        min-width: 14px;
+    }
+
+    .fund-btn:disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+    }
+
+    .fund-amount {
+        min-width: 18px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: bold;
+        color: var(--color-text-dim);
+    }
+
+    .fund-amount.funded {
+        color: #2ecc71;
     }
 </style>
