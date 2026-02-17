@@ -109,6 +109,21 @@
         return Math.max(0, total - committed);
     });
 
+    // Existing move order for the current source→target pair (at most one allowed)
+    let existingMoveOrderForTarget = $derived.by(() => {
+        if (!moveSourceSystem || !moveTargetSystem) return null;
+        return getOrders().find(o =>
+            o.order_type === 'move_ships' &&
+            o.source_system_id === moveSourceSystem.system_id &&
+            o.target_system_id === moveTargetSystem.system_id
+        ) ?? null;
+    });
+
+    // Max ships movable to target: available + what the existing order already committed
+    let maxMoveQuantity = $derived(
+        availableShipsAtSource + (existingMoveOrderForTarget?.quantity ?? 0)
+    );
+
     // Ship counts adjusted for pending move/build orders (for map display)
     let displayShips = $derived.by(() => {
         // Build lookup of build_ships orders by system_id for current player
@@ -279,18 +294,29 @@
 
     function startMoveCount(targetSystem) {
         moveTargetSystem = targetSystem;
-        moveQuantity = availableShipsAtSource; // default to all available
+        // Seed from existing order if one exists, otherwise default to all available
+        const existing = getOrders().find(o =>
+            o.order_type === 'move_ships' &&
+            o.source_system_id === moveSourceSystem?.system_id &&
+            o.target_system_id === targetSystem.system_id
+        );
+        moveQuantity = existing?.quantity ?? availableShipsAtSource;
         interactionMode = 'move_count';
     }
 
     function adjustMoveQuantity(delta) {
-        moveQuantity = Math.max(1, Math.min(moveQuantity + delta, availableShipsAtSource));
+        moveQuantity = Math.max(1, Math.min(moveQuantity + delta, maxMoveQuantity));
     }
 
     async function confirmMove() {
         if (!moveSourceSystem || !moveTargetSystem || moveQuantity <= 0) return;
         orderError = null;
         try {
+            // Replace any existing order for this source→target pair
+            const existing = untrack(() => existingMoveOrderForTarget);
+            if (existing) {
+                await cancelOrder(gameId, turnId, existing.order_id);
+            }
             await createOrder(gameId, turnId, {
                 order_type: 'move_ships',
                 source_system_id: moveSourceSystem.system_id,
@@ -500,8 +526,8 @@
                         <div class="move-qty-row">
                             <button class="qty-btn" onclick={() => adjustMoveQuantity(-1)} disabled={moveQuantity <= 1}>−</button>
                             <span class="qty-value">{moveQuantity}</span>
-                            <button class="qty-btn" onclick={() => adjustMoveQuantity(1)} disabled={moveQuantity >= availableShipsAtSource}>+</button>
-                            <span class="qty-of">of {availableShipsAtSource}</span>
+                            <button class="qty-btn" onclick={() => adjustMoveQuantity(1)} disabled={moveQuantity >= maxMoveQuantity}>+</button>
+                            <span class="qty-of">of {maxMoveQuantity}</span>
                         </div>
                         <button class="action-btn confirm-move-btn" onclick={confirmMove}>Confirm Move</button>
                         <button class="action-btn cancel-move" onclick={() => { interactionMode = 'move_target'; moveTargetSystem = null; }}>Back</button>
