@@ -723,7 +723,7 @@
             {@const screenPos = viewBoxToScreen(chit.system.x + chit.pos.dx, chit.system.y + chit.pos.dy)}
             {@const scale = chitScale()}
             {@const size = CHIT_SIZE * scale}
-            {@const shipLabel = chit.type === 'ships' ? (chit.building > 0 ? `${chit.count}+${chit.building}` : `${chit.count}`) : ''}
+            {@const shipLabel = chit.type === 'ships' ? (chit.building > 0 ? `${chit.count}\\${chit.building}` : `${chit.count}`) : ''}
             {@const labelLen = shipLabel.length}
             {@const shipH = size * 1.5}
             {@const shipW = shipH + labelLen * shipH * 0.45}
@@ -739,7 +739,7 @@
                     background: {playerColor(chit.playerIndex)};
                     font-size: {Math.max(9, chitH * 0.55)}px;
                 "
-                title="{chit.type === 'ships' ? `${chit.count}${chit.building > 0 ? `+${chit.building}` : ''} ships (${playerName(chit.playerIndex)})` : `${chit.type} (${playerName(chit.playerIndex)})`}"
+                title="{chit.type === 'ships' ? `${chit.count}${chit.building > 0 ? `\\${chit.building}` : ''} ships (${playerName(chit.playerIndex)})` : `${chit.type} (${playerName(chit.playerIndex)})`}"
             >
                 {#if chit.type === 'mine'}
                     <svg viewBox="0 0 16 16" class="chit-icon">
