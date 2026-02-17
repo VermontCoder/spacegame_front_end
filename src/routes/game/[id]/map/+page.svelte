@@ -16,6 +16,7 @@
     let moveQuantity = $state(1);
     let mineTargetSystem = $state(null);
     let mineFunding = $state({}); // system_id → allocated amount
+    let buildShipsQty = $state(1);
     let interactionMode = $state('select'); // 'select' | 'move_target' | 'move_count' | 'mine_funding'
     let orderError = $state(null);
     let hoveredOrderId = $state(null);
@@ -146,6 +147,18 @@
         const total = entry?.count ?? 0;
         const committed = shipsCommittedOut[selectedSystem.system_id] ?? 0;
         return Math.max(0, total - committed);
+    });
+
+    // Materials available at the selected system for building ships (after committed orders)
+    let availableMaterialsAtSelected = $derived.by(() => {
+        if (!selectedSystem) return 0;
+        return systemLookup[selectedSystem.system_id]?.materials ?? 0;
+    });
+
+    // Reset build ships qty when selected system changes
+    $effect(() => {
+        selectedSystem;
+        buildShipsQty = 1;
     });
 
     // Structures at selected system
@@ -311,14 +324,15 @@
     }
 
     async function handleBuildShips() {
-        if (!selectedSystem) return;
+        if (!selectedSystem || buildShipsQty < 1) return;
         orderError = null;
         try {
             await createOrder(gameId, turnId, {
                 order_type: 'build_ships',
                 source_system_id: selectedSystem.system_id,
-                quantity: 1,
+                quantity: buildShipsQty,
             });
+            buildShipsQty = 1;
         } catch (e) {
             orderError = e.message;
         }
@@ -412,7 +426,14 @@
                             <button class="action-btn" onclick={handleBuildShipyard}>Build Shipyard</button>
                         {/if}
                         {#if myYardAtSelected}
-                            <button class="action-btn" onclick={handleBuildShips}>Build Ships</button>
+                            <div class="build-ships-row">
+                                <button class="qty-btn" onclick={() => buildShipsQty = Math.max(1, buildShipsQty - 1)} disabled={buildShipsQty <= 1}>−</button>
+                                <span class="qty-value">{buildShipsQty}</span>
+                                <button class="qty-btn" onclick={() => buildShipsQty = Math.min(buildShipsQty + 1, availableMaterialsAtSelected)} disabled={buildShipsQty >= availableMaterialsAtSelected}>+</button>
+                                <button class="action-btn build-ships-btn" onclick={handleBuildShips} disabled={availableMaterialsAtSelected < 1}>
+                                    Build Ship{buildShipsQty !== 1 ? 's' : ''}
+                                </button>
+                            </div>
                         {/if}
                     </div>
                 {/if}
@@ -644,6 +665,17 @@
     .qty-of {
         font-size: 0.8rem;
         color: var(--color-text-dim);
+    }
+
+    .build-ships-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .build-ships-btn {
+        flex: 1;
+        text-align: center;
     }
 
     .confirm-move-btn {
