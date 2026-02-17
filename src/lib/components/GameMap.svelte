@@ -175,7 +175,7 @@
 
     // Compute initial viewBox from system bounding box
     const PADDING = 60;
-    const ASPECT = 1440 / 840; // match the aspect-ratio in CSS
+    const ASPECT = 1656 / 1260; // match the aspect-ratio in CSS
 
     function computeFitViewBox(sysList) {
         if (!sysList || sysList.length === 0) return { x: 0, y: 0, w: 1000, h: 800 };
@@ -836,8 +836,8 @@
     .map-wrapper {
         position: relative;
         width: 100%;
-        max-width: 1440px;
-        aspect-ratio: 1440 / 840;
+        max-width: 1656px;
+        aspect-ratio: 1656 / 1260;
         margin: 0 auto;
         overflow: hidden;
         border: 1px solid var(--color-border);
