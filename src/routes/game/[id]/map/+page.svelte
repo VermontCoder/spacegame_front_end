@@ -1,4 +1,5 @@
 <script>
+    import { untrack } from 'svelte';
     import GameMap from '$lib/components/GameMap.svelte';
     import OrdersPanel from '$lib/components/OrdersPanel.svelte';
     import { getUser } from '$lib/auth.svelte.js';
@@ -155,10 +156,30 @@
         return systemLookup[selectedSystem.system_id]?.materials ?? 0;
     });
 
-    // Reset build ships qty when selected system changes
+    // Existing build_ships order for the selected system (at most one allowed)
+    let buildShipsOrderAtSelected = $derived.by(() => {
+        if (!selectedSystem) return null;
+        return getOrders().find(o =>
+            o.order_type === 'build_ships' &&
+            o.source_system_id === selectedSystem.system_id
+        ) ?? null;
+    });
+
+    // Max ships buildable: available materials + what's already committed in the existing order
+    // (since the existing order's cost is already deducted from availableMaterialsAtSelected)
+    let maxBuildShips = $derived(
+        availableMaterialsAtSelected + (buildShipsOrderAtSelected?.quantity ?? 0)
+    );
+
+    // When selected system changes, seed the counter from any existing build_ships order
     $effect(() => {
         selectedSystem;
-        buildShipsQty = 1;
+        buildShipsQty = untrack(() =>
+            getOrders().find(o =>
+                o.order_type === 'build_ships' &&
+                o.source_system_id === selectedSystem?.system_id
+            )?.quantity ?? 1
+        );
     });
 
     // Structures at selected system
@@ -327,12 +348,16 @@
         if (!selectedSystem || buildShipsQty < 1) return;
         orderError = null;
         try {
+            // Replace any existing build_ships order for this system
+            const existing = untrack(() => buildShipsOrderAtSelected);
+            if (existing) {
+                await cancelOrder(gameId, turnId, existing.order_id);
+            }
             await createOrder(gameId, turnId, {
                 order_type: 'build_ships',
                 source_system_id: selectedSystem.system_id,
                 quantity: buildShipsQty,
             });
-            buildShipsQty = 1;
         } catch (e) {
             orderError = e.message;
         }
@@ -429,8 +454,8 @@
                             <div class="build-ships-row">
                                 <button class="qty-btn" onclick={() => buildShipsQty = Math.max(1, buildShipsQty - 1)} disabled={buildShipsQty <= 1}>−</button>
                                 <span class="qty-value">{buildShipsQty}</span>
-                                <button class="qty-btn" onclick={() => buildShipsQty = Math.min(buildShipsQty + 1, availableMaterialsAtSelected)} disabled={buildShipsQty >= availableMaterialsAtSelected}>+</button>
-                                <button class="action-btn build-ships-btn" onclick={handleBuildShips} disabled={availableMaterialsAtSelected < 1}>
+                                <button class="qty-btn" onclick={() => buildShipsQty = Math.min(buildShipsQty + 1, maxBuildShips)} disabled={buildShipsQty >= maxBuildShips}>+</button>
+                                <button class="action-btn build-ships-btn" onclick={handleBuildShips} disabled={maxBuildShips < 1}>
                                     Build Ship{buildShipsQty !== 1 ? 's' : ''}
                                 </button>
                             </div>
