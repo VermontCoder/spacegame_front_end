@@ -63,6 +63,10 @@ export async function submitTurn(gameId, turnId) {
     return await res.json();
 }
 
+export function setSubmitted(val) {
+    submitted = val;
+}
+
 export function resetOrderState() {
     orders = [];
     submitted = false;

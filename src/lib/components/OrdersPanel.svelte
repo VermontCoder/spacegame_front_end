@@ -17,7 +17,7 @@
         if (order.order_type === 'move_ships') {
             const target = systemLookup[order.target_system_id];
             const targetName = target?.name ?? `System ${order.target_system_id}`;
-            return `Move ${order.ship_count} ship${order.ship_count !== 1 ? 's' : ''}: ${sourceName} → ${targetName}`;
+            return `Move ${order.quantity} ship${order.quantity !== 1 ? 's' : ''}: ${sourceName} → ${targetName}`;
         }
         if (order.order_type === 'build_mine') {
             return `Build Mine at ${sourceName}`;
@@ -26,7 +26,7 @@
             return `Build Shipyard at ${sourceName}`;
         }
         if (order.order_type === 'build_ships') {
-            return `Build ${order.ship_count} ship${order.ship_count !== 1 ? 's' : ''} at ${sourceName}`;
+            return `Build ${order.quantity} ship${order.quantity !== 1 ? 's' : ''} at ${sourceName}`;
         }
         return `${order.order_type} at ${sourceName}`;
     }

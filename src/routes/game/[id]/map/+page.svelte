@@ -4,7 +4,7 @@
     import { getUser } from '$lib/auth.svelte.js';
     import {
         getOrders, isOrdersLoading, isSubmitted,
-        loadOrders, loadTurnStatus, createOrder, cancelOrder, submitTurn, resetOrderState,
+        loadOrders, loadTurnStatus, createOrder, cancelOrder, submitTurn, resetOrderState, setSubmitted,
     } from '$lib/orders.svelte.js';
 
     let { data } = $props();
@@ -87,13 +87,21 @@
     // Turn ID
     let turnId = $derived(mapData?.current_turn ?? 1);
 
-    // Load orders and turn status on mount
+    // Load orders and turn status once auth is ready
+    let currentUser = $derived(getUser());
     $effect(() => {
-        if (gameId && turnId) {
+        if (gameId && turnId && currentUser) {
             resetOrderState();
             loadOrders(gameId, turnId);
             loadTurnStatus(gameId, turnId).then(statuses => {
                 turnStatuses = statuses;
+                // If this player already submitted, restore submitted state
+                if (currentPlayerIndex != null) {
+                    const myStatus = statuses.find(s => s.player_index === currentPlayerIndex);
+                    if (myStatus?.submitted) {
+                        setSubmitted(true);
+                    }
+                }
             });
         }
     });
@@ -139,7 +147,7 @@
                 order_type: 'move_ships',
                 source_system_id: moveSourceSystem.system_id,
                 target_system_id: targetSystem.system_id,
-                ship_count: count,
+                quantity: count,
             });
         } catch (e) {
             orderError = e.message;
@@ -181,7 +189,7 @@
             await createOrder(gameId, turnId, {
                 order_type: 'build_ships',
                 source_system_id: selectedSystem.system_id,
-                ship_count: 1,
+                quantity: 1,
             });
         } catch (e) {
             orderError = e.message;
@@ -201,6 +209,8 @@
         orderError = null;
         try {
             await submitTurn(gameId, turnId);
+            // Refresh turn statuses to show checkmark
+            turnStatuses = await loadTurnStatus(gameId, turnId);
         } catch (e) {
             orderError = e.message;
         }
@@ -209,7 +219,7 @@
     // Check if player has submitted
     function hasSubmitted(playerIndex) {
         const status = turnStatuses.find(s => s.player_index === playerIndex);
-        return status?.has_submitted ?? false;
+        return status?.submitted ?? false;
     }
 </script>
 
@@ -255,53 +265,29 @@
                     {/each}
                 </div>
 
-                {#if selectedSystem}
-                    <div class="selected-panel">
-                        <h2>{selectedSystem.name}</h2>
-                        <dl>
-                            <dt>Mining Value</dt>
-                            <dd>{selectedSystem.mining_value}</dd>
-                            <dt>Materials</dt>
-                            <dd>{selectedSystem.materials ?? 0}</dd>
-                            {#if selectedSystem.is_founders_world}
-                                <dt>Type</dt>
-                                <dd>Founder's World</dd>
-                            {:else if selectedSystem.is_home_system}
-                                <dt>Type</dt>
-                                <dd>Home System</dd>
-                                <dt>Owner</dt>
-                                <dd>{ownerName(selectedSystem)}</dd>
-                            {:else if selectedSystem.owner_player_index != null}
-                                <dt>Owner</dt>
-                                <dd>{ownerName(selectedSystem)}</dd>
-                            {/if}
-                        </dl>
-
-                        {#if !isSubmitted() && isMySystem && interactionMode === 'select'}
-                            <div class="build-actions">
-                                {#if myShipsAtSelected > 0}
-                                    <button class="action-btn move-btn" onclick={startMoveMode}>
-                                        Move {myShipsAtSelected} Ship{myShipsAtSelected !== 1 ? 's' : ''}
-                                    </button>
-                                {/if}
-                                {#if !myMineAtSelected}
-                                    <button class="action-btn" onclick={handleBuildMine}>Build Mine</button>
-                                {/if}
-                                {#if !myYardAtSelected}
-                                    <button class="action-btn" onclick={handleBuildShipyard}>Build Shipyard</button>
-                                {/if}
-                                {#if myYardAtSelected}
-                                    <button class="action-btn" onclick={handleBuildShips}>Build Ships</button>
-                                {/if}
-                            </div>
+                {#if selectedSystem && !isSubmitted() && isMySystem && interactionMode === 'select'}
+                    <div class="actions-panel">
+                        {#if myShipsAtSelected > 0}
+                            <button class="action-btn move-btn" onclick={startMoveMode}>
+                                Move {myShipsAtSelected} Ship{myShipsAtSelected !== 1 ? 's' : ''}
+                            </button>
                         {/if}
-
-                        {#if interactionMode === 'move_target'}
-                            <div class="move-prompt">
-                                <p>Select a destination system</p>
-                                <button class="action-btn cancel-move" onclick={cancelMoveMode}>Cancel Move</button>
-                            </div>
+                        {#if !myMineAtSelected}
+                            <button class="action-btn" onclick={handleBuildMine}>Build Mine</button>
                         {/if}
+                        {#if !myYardAtSelected}
+                            <button class="action-btn" onclick={handleBuildShipyard}>Build Shipyard</button>
+                        {/if}
+                        {#if myYardAtSelected}
+                            <button class="action-btn" onclick={handleBuildShips}>Build Ships</button>
+                        {/if}
+                    </div>
+                {/if}
+
+                {#if interactionMode === 'move_target'}
+                    <div class="actions-panel move-prompt">
+                        <p>Select a destination system</p>
+                        <button class="action-btn cancel-move" onclick={cancelMoveMode}>Cancel Move</button>
                     </div>
                 {/if}
 
@@ -358,17 +344,11 @@
         color: var(--color-accent);
     }
 
-    .legend-panel, .selected-panel {
+    .legend-panel, .actions-panel {
         background: var(--color-bg-panel);
         border: 1px solid var(--color-border);
         border-radius: 8px;
         padding: 1rem;
-    }
-
-    .legend-panel h2, .selected-panel h2 {
-        margin: 0 0 0.5rem;
-        font-size: 1.1rem;
-        color: var(--color-accent);
     }
 
     .player-row {
@@ -402,28 +382,10 @@
         margin-left: auto;
     }
 
-    .selected-panel dl {
-        margin: 0;
-    }
-
-    .selected-panel dt {
-        color: var(--color-text-dim);
-        font-size: 0.85rem;
-        margin-top: 0.5rem;
-    }
-
-    .selected-panel dd {
-        margin: 0;
-        font-size: 1rem;
-    }
-
-    .build-actions {
+    .actions-panel {
         display: flex;
         flex-direction: column;
         gap: 0.35rem;
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid var(--color-border);
     }
 
     .action-btn {

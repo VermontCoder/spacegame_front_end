@@ -301,7 +301,7 @@
         return {
             mine:     { dx: -offset * Math.cos(Math.PI / 6), dy: offset * Math.sin(Math.PI / 6) },   // 8 o'clock
             shipyard: { dx: offset * Math.cos(Math.PI / 6),  dy: offset * Math.sin(Math.PI / 6) },    // 4 o'clock
-            ships:    { dx: 0, dy: -offset },                                                          // 12 o'clock
+            ships:    { dx: 0, dy: -(offset + 6) },                                                      // 12 o'clock
         };
     }
 
@@ -639,7 +639,7 @@
                 fill={currentPlayerColor}
                 font-size="10"
                 font-weight="bold"
-            >{arrow.order.ship_count}</text>
+            >{arrow.order.quantity}</text>
         {/each}
 
         <!-- Ghost build indicators (in SVG space) -->
@@ -688,7 +688,7 @@
                     opacity={hoveredOrderId === order.order_id ? 0.9 : 0.5}
                     font-size="10"
                     font-weight="bold"
-                >+{order.ship_count}</text>
+                >+{order.quantity}</text>
             {/if}
         {/each}
     </svg>
@@ -709,7 +709,7 @@
             <div
                 class="chit chit-{chit.type}"
                 style="
-                    left: {screenPos.x - chitW / 2}px;
+                    left: {screenPos.x - chitW / 2 - (chit.type === 'ships' ? 2 + digits * 0.2 : 0)}px;
                     top: {screenPos.y - chitH / 2}px;
                     width: {chitW}px;
                     height: {chitH}px;
@@ -742,28 +742,41 @@
     {#if hoveredSystem}
         {@const sysShips = shipsBySystem()[hoveredSystem.system_id] || []}
         {@const sysStructs = structsBySystem()[hoveredSystem.system_id] || []}
+        {@const totalShips = sysShips.reduce((s, sh) => s + sh.count, 0)}
+        {@const hasMine = sysStructs.some(st => st.structure_type === 'mine')}
+        {@const hasYard = sysStructs.some(st => st.structure_type === 'shipyard')}
+        {@const ownerLabel = hoveredSystem.is_founders_world ? 'Founder\'s World' : (hoveredSystem.owner_player_index != null ? playerName(hoveredSystem.owner_player_index) : 'None')}
+        {@const ownerColor = hoveredSystem.owner_player_index != null ? playerColor(hoveredSystem.owner_player_index) : 'var(--color-text-dim)'}
         <div
             class="tooltip"
             style="left: {tooltipX + 15}px; top: {tooltipY - 10}px;"
         >
-            <strong>{hoveredSystem.name}</strong>
-            <div>Mining: {hoveredSystem.mining_value}</div>
-            <div>Materials: {hoveredSystem.materials ?? 0}</div>
-            {#if hoveredSystem.is_founders_world}
-                <div class="special">Founder's World</div>
-            {:else if hoveredSystem.is_home_system}
-                <div class="special">Home ({playerName(hoveredSystem.owner_player_index)})</div>
-            {:else if hoveredSystem.owner_player_index != null}
-                <div class="special">Owner: {playerName(hoveredSystem.owner_player_index)}</div>
-            {/if}
-            {#each sysShips as sh}
-                {#if sh.count > 0}
-                    <div class="tooltip-piece">Ships: {sh.count} ({playerName(sh.player_index)})</div>
+            <div class="tt-header" style="color: {ownerColor}">{hoveredSystem.name} — {ownerLabel}</div>
+            <div class="tt-row">
+                <!-- Pickaxe (mining) -->
+                <svg viewBox="0 0 16 16" class="tt-icon"><line x1="12" y1="2" x2="4" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M9 1L14 2L12 7L10 4.5Z" fill="currentColor"/></svg>
+                <span>{hoveredSystem.mining_value}</span>
+                <!-- Cube (materials) -->
+                <svg viewBox="0 0 16 16" class="tt-icon tt-gap"><polygon points="8,2 14,5 14,11 8,14 2,11 2,5" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="5" x2="8" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="14" y1="5" x2="8" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="8" x2="8" y2="14" stroke="currentColor" stroke-width="1.5"/></svg>
+                <span>{hoveredSystem.materials ?? 0}</span>
+                {#if totalShips > 0}
+                    <!-- Rocket (ships) -->
+                    <svg viewBox="0 0 20 28" class="tt-icon tt-gap tt-ship"><path d="M10 1 C10 1, 6 7, 6 14 L6 20 L3.5 24 L3.5 27 L7 23.5 L7 27 L8.5 25 L10 27 L11.5 25 L13 27 L13 23.5 L16.5 27 L16.5 24 L14 20 L14 14 C14 7, 10 1, 10 1Z" fill="currentColor"/></svg>
+                    <span>{totalShips}</span>
                 {/if}
-            {/each}
-            {#each sysStructs as st}
-                <div class="tooltip-piece">{st.structure_type} ({playerName(st.player_index)})</div>
-            {/each}
+                {#if hasMine}
+                    <!-- Mine chit tile -->
+                    <div class="tt-chit tt-gap" style="background: {ownerColor}">
+                        <svg viewBox="0 0 16 16" class="tt-chit-icon"><line x1="12" y1="2" x2="4" y2="12" stroke="white" stroke-width="2.5" stroke-linecap="round"/><path d="M9 1L14 2L12 7L10 4.5Z" fill="white"/></svg>
+                    </div>
+                {/if}
+                {#if hasYard}
+                    <!-- Shipyard chit tile -->
+                    <div class="tt-chit tt-gap" style="background: {ownerColor}">
+                        <svg viewBox="0 0 16 16" class="tt-chit-icon"><rect x="2" y="8" width="12" height="6" rx="1" fill="none" stroke="white" stroke-width="1.5"/><polygon points="8,2 13,8 3,8" fill="none" stroke="white" stroke-width="1.5"/></svg>
+                    </div>
+                {/if}
+            </div>
         </div>
     {/if}
 </div>
@@ -867,7 +880,7 @@
         background: var(--color-bg-panel);
         border: 1px solid var(--color-border-light);
         border-radius: 6px;
-        padding: 8px 12px;
+        padding: 6px 10px;
         color: var(--color-text);
         font-size: 12px;
         pointer-events: none;
@@ -875,15 +888,46 @@
         white-space: nowrap;
     }
 
-    .tooltip .special {
-        color: var(--color-accent);
-        font-size: 11px;
-        margin-top: 2px;
+    .tt-header {
+        font-weight: bold;
+        margin-bottom: 4px;
     }
 
-    .tooltip .tooltip-piece {
-        font-size: 11px;
+    .tt-row {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .tt-icon {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
         color: var(--color-text-dim);
-        margin-top: 1px;
+    }
+
+    .tt-ship {
+        width: 10px;
+        height: 14px;
+    }
+
+    .tt-gap {
+        margin-left: 6px;
+    }
+
+    .tt-chit {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        border: 1px solid rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .tt-chit-icon {
+        width: 70%;
+        height: 70%;
     }
 </style>
