@@ -163,6 +163,7 @@
             await createOrder(gameId, turnId, {
                 order_type: 'build_mine',
                 source_system_id: selectedSystem.system_id,
+                material_sources: [{ system_id: selectedSystem.system_id, amount: 15 }],
             });
         } catch (e) {
             orderError = e.message;
