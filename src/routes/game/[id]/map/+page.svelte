@@ -109,14 +109,35 @@
         return Math.max(0, total - committed);
     });
 
-    // Ship counts adjusted for pending move orders (for map display)
+    // Ship counts adjusted for pending move/build orders (for map display)
     let displayShips = $derived.by(() => {
-        return (mapData?.ships ?? []).map(s => {
+        // Build lookup of build_ships orders by system_id for current player
+        const buildingBySid = {};
+        for (const order of getOrders()) {
+            if (order.order_type === 'build_ships') {
+                buildingBySid[order.source_system_id] = order.quantity;
+            }
+        }
+
+        const handledSids = new Set();
+        const result = (mapData?.ships ?? []).map(s => {
             if (s.player_index !== currentPlayerIndex) return s;
+            handledSids.add(s.system_id);
             const committed = shipsCommittedOut[s.system_id] ?? 0;
-            if (committed === 0) return s;
-            return { ...s, count: Math.max(0, s.count - committed) };
+            const building = buildingBySid[s.system_id] ?? 0;
+            const count = Math.max(0, s.count - committed);
+            return building > 0 ? { ...s, count, building } : { ...s, count };
         });
+
+        // Add virtual entries for systems where current player has a build order but no ships yet
+        for (const [sidStr, qty] of Object.entries(buildingBySid)) {
+            const sid = parseInt(sidStr);
+            if (!handledSids.has(sid) && currentPlayerIndex != null) {
+                result.push({ system_id: sid, player_index: currentPlayerIndex, count: 0, building: qty });
+            }
+        }
+
+        return result;
     });
 
     // Auto-exit move_target when all ships at source are committed

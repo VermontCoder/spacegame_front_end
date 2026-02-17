@@ -302,7 +302,7 @@
 
     function chitPositions(system) {
         const r = systemRadius(system);
-        const offset = r + 2;
+        const offset = r + 6;
         return {
             mine:     { dx: -offset * Math.cos(Math.PI / 6), dy: offset * Math.sin(Math.PI / 6) },   // 8 o'clock
             shipyard: { dx: offset * Math.cos(Math.PI / 6),  dy: offset * Math.sin(Math.PI / 6) },    // 4 o'clock
@@ -361,12 +361,14 @@
                 });
             }
             for (const ship of sysShips) {
-                if (ship.count > 0) {
+                const building = ship.building ?? 0;
+                if (ship.count > 0 || building > 0) {
                     result.push({
                         type: 'ships',
                         system: sys,
                         playerIndex: ship.player_index,
                         count: ship.count,
+                        building,
                         pos: positions.ships,
                     });
                 }
@@ -422,9 +424,7 @@
     let buildYardOrders = $derived(
         orders.filter(o => o.order_type === 'build_shipyard')
     );
-    let buildShipOrders = $derived(
-        orders.filter(o => o.order_type === 'build_ships')
-    );
+
 </script>
 
 <div class="map-wrapper">
@@ -713,20 +713,6 @@
                 />
             {/if}
         {/each}
-        {#each buildShipOrders as order}
-            {@const sys = systemLookup[order.source_system_id]}
-            {#if sys}
-                {@const pos = chitPositions(sys)}
-                <text
-                    x={sys.x + pos.ships.dx + 12}
-                    y={sys.y + pos.ships.dy + 3}
-                    fill={currentPlayerColor}
-                    opacity={hoveredOrderId === order.order_id ? 0.9 : 0.5}
-                    font-size="10"
-                    font-weight="bold"
-                >+{order.quantity}</text>
-            {/if}
-        {/each}
     </svg>
 
     <button class="reset-btn" onclick={resetView}>Reset View</button>
@@ -737,22 +723,23 @@
             {@const screenPos = viewBoxToScreen(chit.system.x + chit.pos.dx, chit.system.y + chit.pos.dy)}
             {@const scale = chitScale()}
             {@const size = CHIT_SIZE * scale}
-            {@const digits = chit.type === 'ships' ? String(chit.count).length : 0}
+            {@const shipLabel = chit.type === 'ships' ? (chit.building > 0 ? `${chit.count}+${chit.building}` : `${chit.count}`) : ''}
+            {@const labelLen = shipLabel.length}
             {@const shipH = size * 1.5}
-            {@const shipW = shipH + digits * shipH * 0.45}
+            {@const shipW = shipH + labelLen * shipH * 0.45}
             {@const chitW = chit.type === 'ships' ? shipW : size}
             {@const chitH = chit.type === 'ships' ? shipH : size}
             <div
                 class="chit chit-{chit.type}"
                 style="
-                    left: {screenPos.x - chitW / 2 - (chit.type === 'ships' ? 2 + digits * 0.2 : 0)}px;
+                    left: {screenPos.x - chitW / 2 - (chit.type === 'ships' ? 2 + labelLen * 0.2 : 0)}px;
                     top: {screenPos.y - chitH / 2}px;
                     width: {chitW}px;
                     height: {chitH}px;
                     background: {playerColor(chit.playerIndex)};
                     font-size: {Math.max(9, chitH * 0.55)}px;
                 "
-                title="{chit.type === 'ships' ? `${chit.count} ships (${playerName(chit.playerIndex)})` : `${chit.type} (${playerName(chit.playerIndex)})`}"
+                title="{chit.type === 'ships' ? `${chit.count}${chit.building > 0 ? `+${chit.building}` : ''} ships (${playerName(chit.playerIndex)})` : `${chit.type} (${playerName(chit.playerIndex)})`}"
             >
                 {#if chit.type === 'mine'}
                     <svg viewBox="0 0 16 16" class="chit-icon">
@@ -768,7 +755,7 @@
                     <svg viewBox="0 0 20 28" class="ship-icon">
                         <path d="M10 1 C10 1, 6 7, 6 14 L6 20 L3.5 24 L3.5 27 L7 23.5 L7 27 L8.5 25 L10 27 L11.5 25 L13 27 L13 23.5 L16.5 27 L16.5 24 L14 20 L14 14 C14 7, 10 1, 10 1Z" fill="white"/>
                     </svg>
-                    <span class="ship-count">{chit.count}</span>
+                    <span class="ship-count">{shipLabel}</span>
                 {/if}
             </div>
         {/each}
