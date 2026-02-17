@@ -12,9 +12,11 @@
 
     let selectedSystem = $state(null);
     let moveSourceSystem = $state(null);
+    let moveTargetSystem = $state(null);
+    let moveQuantity = $state(1);
     let mineTargetSystem = $state(null);
     let mineFunding = $state({}); // system_id → allocated amount
-    let interactionMode = $state('select'); // 'select' | 'move_target' | 'mine_funding'
+    let interactionMode = $state('select'); // 'select' | 'move_target' | 'move_count' | 'mine_funding'
     let orderError = $state(null);
     let hoveredOrderId = $state(null);
     let turnStatuses = $state([]);
@@ -58,6 +60,46 @@
         return adj ?? new Set();
     });
 
+    // Ships already committed to move orders this turn, keyed by source system_id
+    let shipsCommittedOut = $derived.by(() => {
+        const out = {};
+        for (const order of getOrders()) {
+            if (order.order_type === 'move_ships') {
+                const sid = order.source_system_id;
+                out[sid] = (out[sid] ?? 0) + order.quantity;
+            }
+        }
+        return out;
+    });
+
+    // Available ships at the move source, accounting for already-ordered moves
+    let availableShipsAtSource = $derived.by(() => {
+        if (!moveSourceSystem || currentPlayerIndex == null) return 0;
+        const entry = (mapData?.ships ?? []).find(
+            s => s.system_id === moveSourceSystem.system_id && s.player_index === currentPlayerIndex
+        );
+        const total = entry?.count ?? 0;
+        const committed = shipsCommittedOut[moveSourceSystem.system_id] ?? 0;
+        return Math.max(0, total - committed);
+    });
+
+    // Ship counts adjusted for pending move orders (for map display)
+    let displayShips = $derived.by(() => {
+        return (mapData?.ships ?? []).map(s => {
+            if (s.player_index !== currentPlayerIndex) return s;
+            const committed = shipsCommittedOut[s.system_id] ?? 0;
+            if (committed === 0) return s;
+            return { ...s, count: Math.max(0, s.count - committed) };
+        });
+    });
+
+    // Auto-exit move_target when all ships at source are committed
+    $effect(() => {
+        if (interactionMode === 'move_target' && moveSourceSystem && availableShipsAtSource <= 0) {
+            cancelMoveMode();
+        }
+    });
+
     // Mine funding
     let mineFundingTotal = $derived(Object.values(mineFunding).reduce((s, v) => s + v, 0));
     let eligibleFundingSystems = $derived.by(() => {
@@ -71,14 +113,15 @@
             .sort((a, b) => b.materials - a.materials);
     });
 
-    // Ships the current player has at the selected system
+    // Ships the current player has at the selected system, minus any already ordered out
     let myShipsAtSelected = $derived.by(() => {
         if (!selectedSystem || currentPlayerIndex == null) return 0;
-        const ships = mapData?.ships ?? [];
-        const entry = ships.find(
+        const entry = (mapData?.ships ?? []).find(
             s => s.system_id === selectedSystem.system_id && s.player_index === currentPlayerIndex
         );
-        return entry?.count ?? 0;
+        const total = entry?.count ?? 0;
+        const committed = shipsCommittedOut[selectedSystem.system_id] ?? 0;
+        return Math.max(0, total - committed);
     });
 
     // Structures at selected system
@@ -129,14 +172,12 @@
 
     function handleSelectSystem(system) {
         if (interactionMode === 'move_target' && moveSourceSystem) {
-            // Clicked a system while choosing move target
             if (validMoveTargets.has(system.system_id)) {
-                promptMoveShips(system);
+                startMoveCount(system);
             }
             return;
         }
-        if (interactionMode === 'mine_funding') {
-            // Clicks on the map are ignored while allocating mine materials
+        if (interactionMode === 'move_count' || interactionMode === 'mine_funding') {
             return;
         }
         selectedSystem = system;
@@ -153,26 +194,37 @@
     function cancelMoveMode() {
         interactionMode = 'select';
         moveSourceSystem = null;
+        moveTargetSystem = null;
+        moveQuantity = 1;
     }
 
-    async function promptMoveShips(targetSystem) {
-        // For simplicity, move all ships. Could add a count prompt later.
-        const count = myShipsAtSelected;
-        if (count <= 0) return;
+    function startMoveCount(targetSystem) {
+        moveTargetSystem = targetSystem;
+        moveQuantity = availableShipsAtSource; // default to all available
+        interactionMode = 'move_count';
+    }
 
+    function adjustMoveQuantity(delta) {
+        moveQuantity = Math.max(1, Math.min(moveQuantity + delta, availableShipsAtSource));
+    }
+
+    async function confirmMove() {
+        if (!moveSourceSystem || !moveTargetSystem || moveQuantity <= 0) return;
         orderError = null;
         try {
             await createOrder(gameId, turnId, {
                 order_type: 'move_ships',
                 source_system_id: moveSourceSystem.system_id,
-                target_system_id: targetSystem.system_id,
-                quantity: count,
+                target_system_id: moveTargetSystem.system_id,
+                quantity: moveQuantity,
             });
+            // Return to target selection — auto-exit effect will cancel if no ships remain
+            moveTargetSystem = null;
+            moveQuantity = 1;
+            interactionMode = 'move_target';
         } catch (e) {
             orderError = e.message;
         }
-        interactionMode = 'select';
-        moveSourceSystem = null;
     }
 
     function startMineFunding() {
@@ -285,7 +337,7 @@
             <GameMap
                 systems={mapData.systems}
                 jumpLines={mapData.jump_lines}
-                ships={mapData.ships ?? []}
+                ships={displayShips}
                 structures={mapData.structures ?? []}
                 players={mapData.players ?? []}
                 orders={getOrders()}
@@ -343,8 +395,25 @@
 
                 {#if interactionMode === 'move_target'}
                     <div class="actions-panel move-prompt">
-                        <p>Select a destination system</p>
+                        <p>Moving from <strong>{moveSourceSystem?.name}</strong></p>
+                        <p class="move-remaining">{availableShipsAtSource} ship{availableShipsAtSource !== 1 ? 's' : ''} available — select destination</p>
                         <button class="action-btn cancel-move" onclick={cancelMoveMode}>Cancel Move</button>
+                    </div>
+                {/if}
+
+                {#if interactionMode === 'move_count'}
+                    <div class="actions-panel move-count-panel">
+                        <p class="move-count-title">
+                            <strong>{moveSourceSystem?.name}</strong> → <strong>{moveTargetSystem?.name}</strong>
+                        </p>
+                        <div class="move-qty-row">
+                            <button class="qty-btn" onclick={() => adjustMoveQuantity(-1)} disabled={moveQuantity <= 1}>−</button>
+                            <span class="qty-value">{moveQuantity}</span>
+                            <button class="qty-btn" onclick={() => adjustMoveQuantity(1)} disabled={moveQuantity >= availableShipsAtSource}>+</button>
+                            <span class="qty-of">of {availableShipsAtSource}</span>
+                        </div>
+                        <button class="action-btn confirm-move-btn" onclick={confirmMove}>Confirm Move</button>
+                        <button class="action-btn cancel-move" onclick={() => { interactionMode = 'move_target'; moveTargetSystem = null; }}>Back</button>
                     </div>
                 {/if}
 
@@ -498,6 +567,64 @@
     .cancel-move {
         color: var(--color-error);
         border-color: var(--color-error);
+    }
+
+    .move-remaining {
+        margin: 0 0 0.5rem;
+        font-size: 0.8rem;
+        color: var(--color-text-dim);
+    }
+
+    .move-count-title {
+        margin: 0 0 0.5rem;
+        font-size: 0.85rem;
+        color: var(--color-accent);
+    }
+
+    .move-qty-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .qty-btn {
+        background: var(--color-bg-panel-hover);
+        border: 1px solid var(--color-border-light);
+        border-radius: 3px;
+        color: var(--color-text);
+        font-size: 16px;
+        font-weight: bold;
+        width: 26px;
+        height: 26px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+
+    .qty-btn:disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+    }
+
+    .qty-value {
+        min-width: 28px;
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: var(--color-accent);
+    }
+
+    .qty-of {
+        font-size: 0.8rem;
+        color: var(--color-text-dim);
+    }
+
+    .confirm-move-btn {
+        color: var(--color-accent);
+        border-color: var(--color-accent);
     }
 
     .funding-title {
