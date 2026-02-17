@@ -5,6 +5,11 @@
         ships = [],
         structures = [],
         players = [],
+        orders = [],
+        moveSourceSystem = null,
+        validMoveTargets = new Set(),
+        hoveredOrderId = null,
+        currentPlayerIndex = null,
         onSelectSystem = () => {},
     } = $props();
 
@@ -369,6 +374,52 @@
     let chitVersion = $derived(
         activeViewBox ? `${activeViewBox.x}-${activeViewBox.y}-${activeViewBox.w}` : '0'
     );
+
+    // --- Order visualization data ---
+    let currentPlayerColor = $derived(
+        currentPlayerIndex != null ? playerColor(currentPlayerIndex) : '#888'
+    );
+
+    // Move orders: compute arrow paths
+    let moveOrderArrows = $derived.by(() => {
+        return orders
+            .filter(o => o.order_type === 'move_ships')
+            .map(o => {
+                const from = systemLookup[o.source_system_id];
+                const to = systemLookup[o.target_system_id];
+                if (!from || !to) return null;
+                // Shorten arrow to not overlap system circles
+                const dx = to.x - from.x;
+                const dy = to.y - from.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist === 0) return null;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const fromR = systemRadius(from) + 4;
+                const toR = systemRadius(to) + 6;
+                return {
+                    order: o,
+                    x1: from.x + nx * fromR,
+                    y1: from.y + ny * fromR,
+                    x2: to.x - nx * toR,
+                    y2: to.y - ny * toR,
+                    mx: (from.x + to.x) / 2,
+                    my: (from.y + to.y) / 2,
+                };
+            })
+            .filter(Boolean);
+    });
+
+    // Build orders: ghost overlays
+    let buildMineOrders = $derived(
+        orders.filter(o => o.order_type === 'build_mine')
+    );
+    let buildYardOrders = $derived(
+        orders.filter(o => o.order_type === 'build_shipyard')
+    );
+    let buildShipOrders = $derived(
+        orders.filter(o => o.order_type === 'build_ships')
+    );
 </script>
 
 <div class="map-wrapper">
@@ -399,6 +450,39 @@
                     y2={toSys.y}
                     stroke="var(--color-jump-line)"
                     stroke-width="1.5"
+                    stroke-opacity="0.6"
+                />
+            {/if}
+        {/each}
+
+        <!-- Move source system highlight -->
+        {#if moveSourceSystem}
+            {@const src = systemLookup[moveSourceSystem.system_id]}
+            {#if src}
+                <circle
+                    cx={src.x}
+                    cy={src.y}
+                    r={systemRadius(src) + 8}
+                    fill="none"
+                    stroke={currentPlayerColor}
+                    stroke-width="3"
+                    stroke-opacity="0.8"
+                    class="source-glow"
+                />
+            {/if}
+        {/if}
+
+        <!-- Valid move destination highlights -->
+        {#each systems as system (system.system_id)}
+            {#if validMoveTargets.has(system.system_id)}
+                <circle
+                    cx={system.x}
+                    cy={system.y}
+                    r={systemRadius(system) + 6}
+                    fill="none"
+                    stroke={currentPlayerColor}
+                    stroke-width="2"
+                    stroke-dasharray="5 3"
                     stroke-opacity="0.6"
                 />
             {/if}
@@ -526,6 +610,87 @@
                 {/if}
             </g>
         {/each}
+
+        <!-- Move order arrows -->
+        <defs>
+            <marker id="order-arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill={currentPlayerColor} opacity="0.8" />
+            </marker>
+        </defs>
+        {#each moveOrderArrows as arrow}
+            {@const isHighlighted = hoveredOrderId === arrow.order.order_id}
+            <line
+                x1={arrow.x1}
+                y1={arrow.y1}
+                x2={arrow.x2}
+                y2={arrow.y2}
+                stroke={currentPlayerColor}
+                stroke-width={isHighlighted ? 3 : 2}
+                stroke-opacity={isHighlighted ? 1 : 0.6}
+                marker-end="url(#order-arrowhead)"
+            />
+            <!-- Ship count at midpoint -->
+            <circle cx={arrow.mx} cy={arrow.my} r="10" fill="var(--color-map-bg)" stroke={currentPlayerColor} stroke-width="1" opacity="0.9" />
+            <text
+                x={arrow.mx}
+                y={arrow.my + 1}
+                text-anchor="middle"
+                dominant-baseline="middle"
+                fill={currentPlayerColor}
+                font-size="10"
+                font-weight="bold"
+            >{arrow.order.ship_count}</text>
+        {/each}
+
+        <!-- Ghost build indicators (in SVG space) -->
+        {#each buildMineOrders as order}
+            {@const sys = systemLookup[order.source_system_id]}
+            {#if sys}
+                {@const pos = chitPositions(sys)}
+                <rect
+                    x={sys.x + pos.mine.dx - 7}
+                    y={sys.y + pos.mine.dy - 7}
+                    width="14" height="14"
+                    rx="2"
+                    fill={currentPlayerColor}
+                    opacity={hoveredOrderId === order.order_id ? 0.6 : 0.3}
+                    stroke={currentPlayerColor}
+                    stroke-width="1"
+                    stroke-dasharray="3 2"
+                />
+            {/if}
+        {/each}
+        {#each buildYardOrders as order}
+            {@const sys = systemLookup[order.source_system_id]}
+            {#if sys}
+                {@const pos = chitPositions(sys)}
+                <rect
+                    x={sys.x + pos.shipyard.dx - 7}
+                    y={sys.y + pos.shipyard.dy - 7}
+                    width="14" height="14"
+                    rx="2"
+                    fill={currentPlayerColor}
+                    opacity={hoveredOrderId === order.order_id ? 0.6 : 0.3}
+                    stroke={currentPlayerColor}
+                    stroke-width="1"
+                    stroke-dasharray="3 2"
+                />
+            {/if}
+        {/each}
+        {#each buildShipOrders as order}
+            {@const sys = systemLookup[order.source_system_id]}
+            {#if sys}
+                {@const pos = chitPositions(sys)}
+                <text
+                    x={sys.x + pos.ships.dx + 12}
+                    y={sys.y + pos.ships.dy + 3}
+                    fill={currentPlayerColor}
+                    opacity={hoveredOrderId === order.order_id ? 0.9 : 0.5}
+                    font-size="10"
+                    font-weight="bold"
+                >+{order.ship_count}</text>
+            {/if}
+        {/each}
     </svg>
 
     <button class="reset-btn" onclick={resetView}>Reset View</button>
@@ -627,6 +792,15 @@
 
     .system-node {
         cursor: pointer;
+    }
+
+    .source-glow {
+        animation: pulse-glow 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+        0%, 100% { stroke-opacity: 0.4; }
+        50% { stroke-opacity: 1; }
     }
 
     .reset-btn {
