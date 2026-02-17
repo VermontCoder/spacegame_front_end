@@ -34,11 +34,35 @@
             : {}
     );
 
-    // Build system lookup
+    // Materials committed by pending build orders, keyed by system_id
+    let materialsCommittedOut = $derived.by(() => {
+        const out = {};
+        for (const order of getOrders()) {
+            if (order.order_type === 'build_mine') {
+                for (const ms of (order.material_sources ?? [])) {
+                    out[ms.system_id] = (out[ms.system_id] ?? 0) + ms.amount;
+                }
+            } else if (order.order_type === 'build_shipyard') {
+                out[order.source_system_id] = (out[order.source_system_id] ?? 0) + 30;
+            } else if (order.order_type === 'build_ships') {
+                out[order.source_system_id] = (out[order.source_system_id] ?? 0) + order.quantity;
+            }
+        }
+        return out;
+    });
+
+    // System materials adjusted for pending build orders (for map display)
+    let displaySystems = $derived.by(() => {
+        return (mapData?.systems ?? []).map(s => {
+            const committed = materialsCommittedOut[s.system_id] ?? 0;
+            if (committed === 0) return s;
+            return { ...s, materials: Math.max(0, s.materials - committed) };
+        });
+    });
+
+    // Build system lookup (uses display values so funding UI sees correct available materials)
     let systemLookup = $derived(
-        mapData?.systems
-            ? Object.fromEntries(mapData.systems.map(s => [s.system_id, s]))
-            : {}
+        Object.fromEntries(displaySystems.map(s => [s.system_id, s]))
     );
 
     // Build adjacency from jump lines
@@ -104,7 +128,7 @@
     let mineFundingTotal = $derived(Object.values(mineFunding).reduce((s, v) => s + v, 0));
     let eligibleFundingSystems = $derived.by(() => {
         if (interactionMode !== 'mine_funding' || !mineTargetSystem) return [];
-        return (mapData?.systems ?? [])
+        return displaySystems
             .filter(s =>
                 s.system_id !== mineTargetSystem.system_id
                 && s.owner_player_index === currentPlayerIndex
@@ -242,7 +266,7 @@
 
     function adjustFunding(systemId, delta) {
         const current = mineFunding[systemId] ?? 0;
-        const sys = mapData?.systems?.find(s => s.system_id === systemId);
+        const sys = systemLookup[systemId];
         const available = sys?.materials ?? 0;
         if (delta > 0) {
             const remaining = 15 - mineFundingTotal;
@@ -335,7 +359,7 @@
     {:else if mapData}
         <div class="map-layout">
             <GameMap
-                systems={mapData.systems}
+                systems={displaySystems}
                 jumpLines={mapData.jump_lines}
                 ships={displayShips}
                 structures={mapData.structures ?? []}
@@ -378,7 +402,7 @@
                     <div class="actions-panel">
                         {#if myShipsAtSelected > 0}
                             <button class="action-btn move-btn" onclick={startMoveMode}>
-                                Move {myShipsAtSelected} Ship{myShipsAtSelected !== 1 ? 's' : ''}
+                                Move Ships
                             </button>
                         {/if}
                         {#if !myMineAtSelected}
