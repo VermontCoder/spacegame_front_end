@@ -514,7 +514,7 @@
                     <div class="actions-panel move-prompt">
                         <p>Moving from <strong>{moveSourceSystem?.name}</strong></p>
                         <p class="move-remaining">{availableShipsAtSource} ship{availableShipsAtSource !== 1 ? 's' : ''} available — select destination</p>
-                        <button class="action-btn cancel-move" onclick={cancelMoveMode}>Cancel Move</button>
+                        <button class="action-btn cancel-move" onclick={cancelMoveMode}>Done moving from {moveSourceSystem?.name}</button>
                     </div>
                 {/if}
 
