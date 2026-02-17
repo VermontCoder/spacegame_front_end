@@ -159,11 +159,19 @@
     async function handleBuildMine() {
         if (!selectedSystem) return;
         orderError = null;
+        // Find the player's system (not this one) with the most available materials (≥15)
+        const candidateSystems = (mapData?.systems ?? [])
+            .filter(s => s.system_id !== selectedSystem.system_id && s.owner_player_index === currentPlayerIndex && s.materials >= 15)
+            .sort((a, b) => b.materials - a.materials);
+        if (candidateSystems.length === 0) {
+            orderError = 'No owned system has 15+ materials to fund this mine.';
+            return;
+        }
         try {
             await createOrder(gameId, turnId, {
                 order_type: 'build_mine',
                 source_system_id: selectedSystem.system_id,
-                material_sources: [{ system_id: selectedSystem.system_id, amount: 15 }],
+                material_sources: [{ system_id: candidateSystems[0].system_id, amount: 15 }],
             });
         } catch (e) {
             orderError = e.message;
