@@ -13,7 +13,9 @@ export async function loadOrders(gameId, turnId) {
     try {
         const res = await apiFetch(`/games/${gameId}/turns/${turnId}/orders`);
         if (res.ok) orders = await res.json();
-    } catch {}
+    } catch (e) {
+        console.error('Failed to load orders:', e);
+    }
     loading = false;
 }
 
@@ -21,7 +23,9 @@ export async function loadTurnStatus(gameId, turnId) {
     try {
         const res = await apiFetch(`/games/${gameId}/turns/${turnId}/status`);
         if (res.ok) return await res.json();
-    } catch {}
+    } catch (e) {
+        console.error('Failed to load turn status:', e);
+    }
     return [];
 }
 

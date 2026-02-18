@@ -98,16 +98,18 @@
         return out;
     });
 
-    // Available ships at the move source, accounting for already-ordered moves
-    let availableShipsAtSource = $derived.by(() => {
-        if (!moveSourceSystem || currentPlayerIndex == null) return 0;
+    // Available ships for the current player at any system, after committed move orders
+    function availableShipsAt(systemId) {
+        if (systemId == null || currentPlayerIndex == null) return 0;
         const entry = (mapData?.ships ?? []).find(
-            s => s.system_id === moveSourceSystem.system_id && s.player_index === currentPlayerIndex
+            s => s.system_id === systemId && s.player_index === currentPlayerIndex
         );
         const total = entry?.count ?? 0;
-        const committed = shipsCommittedOut[moveSourceSystem.system_id] ?? 0;
+        const committed = shipsCommittedOut[systemId] ?? 0;
         return Math.max(0, total - committed);
-    });
+    }
+
+    let availableShipsAtSource = $derived(availableShipsAt(moveSourceSystem?.system_id));
 
     // Existing move order for the current source→target pair (at most one allowed)
     let existingMoveOrderForTarget = $derived.by(() => {
@@ -176,15 +178,7 @@
     });
 
     // Ships the current player has at the selected system, minus any already ordered out
-    let myShipsAtSelected = $derived.by(() => {
-        if (!selectedSystem || currentPlayerIndex == null) return 0;
-        const entry = (mapData?.ships ?? []).find(
-            s => s.system_id === selectedSystem.system_id && s.player_index === currentPlayerIndex
-        );
-        const total = entry?.count ?? 0;
-        const committed = shipsCommittedOut[selectedSystem.system_id] ?? 0;
-        return Math.max(0, total - committed);
-    });
+    let myShipsAtSelected = $derived(availableShipsAt(selectedSystem?.system_id));
 
     // Materials available at the selected system for building ships (after committed orders)
     let availableMaterialsAtSelected = $derived.by(() => {
@@ -207,9 +201,10 @@
         availableMaterialsAtSelected + (buildShipsOrderAtSelected?.quantity ?? 0)
     );
 
-    // When selected system changes, seed the counter from any existing build_ships order
+    // When selected system changes, seed the counter from any existing build_ships order.
+    // Reading selectedSystem here (without untrack) makes this effect re-run on selection change.
     $effect(() => {
-        selectedSystem;
+        void selectedSystem;
         buildShipsQty = untrack(() =>
             getOrders().find(o =>
                 o.order_type === 'build_ships' &&
