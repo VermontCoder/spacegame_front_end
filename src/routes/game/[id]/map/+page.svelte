@@ -610,6 +610,17 @@
         snapshotCache = {};
     }
 
+    async function goToTurn(n) {
+        if (animating) return;
+        replayTurnIndex = n;
+        const snap = await loadCachedSnapshot(gameId, n);
+        replaySnapshot = snap;
+    }
+
+    async function playTurn(n) {
+        // Implemented in Task 6
+    }
+
     onDestroy(() => {
         stopPolling();
     });
@@ -664,120 +675,171 @@
             />
 
             <aside class="sidebar">
-                {#if liveMapData.current_turn}
-                    <div class="turn-indicator">Turn {liveMapData.current_turn}</div>
-                {/if}
-
-                {#if !replayMode && (isCompleted || (liveMapData?.current_turn ?? 1) > 1)}
-                    <button class="history-btn" onclick={enterReplayMode}>History</button>
-                {/if}
-
-                {#if isExpress}
-                    <div class="express-end-panel">
-                        <button class="express-end-btn" onclick={handleExpressEnd}>
-                            Express End
-                        </button>
-                        {#if expressEndError}
-                            <p class="express-end-error">{expressEndError}</p>
-                        {/if}
-                    </div>
-                {/if}
-
-                <div class="legend-panel">
-                    <h2>Players</h2>
-                    {#each liveMapData.players ?? [] as player}
-                        <div class="player-row">
-                            <span class="color-swatch" style="background: {player.color};"></span>
-                            <span class="player-name">{player.username}</span>
-                            {#if hasSubmitted(player.player_index)}
-                                <span class="submitted-check" title="Submitted">✓</span>
-                            {/if}
-                            {#if player.home_system_name}
-                                <span class="home-name">{player.home_system_name}</span>
-                            {/if}
+                {#if replayMode}
+                    <div class="replay-panel">
+                        <div class="replay-header">
+                            <span class="replay-label">History</span>
+                            <button class="exit-replay-btn" onclick={exitReplayMode}>← Live</button>
                         </div>
-                    {/each}
-                </div>
-
-                {#if selectedSystem && !isCompleted && !isSubmitted() && isMySystem && interactionMode === 'select'}
-                    <div class="actions-panel">
-                        {#if myShipsAtSelected > 0}
-                            <button class="action-btn move-btn" onclick={startMoveMode}>
-                                Move Ships
+                        <div class="replay-nav">
+                            <button
+                                class="nav-btn"
+                                onclick={() => goToTurn(Math.max(0, replayTurnIndex - 1))}
+                                disabled={replayTurnIndex <= 0 || animating}
+                            >◀</button>
+                            <div class="replay-turn-info">
+                                {#if replayTurnIndex === 0}
+                                    <span>Initial State</span>
+                                {:else}
+                                    <span>After Turn {replayTurnIndex}</span>
+                                    <span class="replay-of">of {maxResolvedTurnId}</span>
+                                {/if}
+                            </div>
+                            <button
+                                class="nav-btn"
+                                onclick={() => goToTurn(Math.min(replayTurnIndex + 1, maxResolvedTurnId))}
+                                disabled={replayTurnIndex >= maxResolvedTurnId || animating}
+                            >▶</button>
+                        </div>
+                        {#if replayTurnIndex > 0}
+                            <button
+                                class="play-btn"
+                                onclick={() => playTurn(replayTurnIndex)}
+                                disabled={animating}
+                            >
+                                {animating ? 'Playing...' : `▶ Play Turn ${replayTurnIndex}`}
                             </button>
                         {/if}
-                        {#if !myMineAtSelected && !mineOrderAtSelected}
-                            <button class="action-btn" onclick={startMineFunding}>Build Mine</button>
-                        {/if}
-                        {#if myMineAtSelected && !myYardAtSelected && !yardOrderAtSelected}
-                            <button class="action-btn" onclick={handleBuildShipyard}>Build Shipyard</button>
-                        {/if}
-                        {#if myYardAtSelected}
-                            <div class="build-ships-row">
-                                <button class="qty-btn" use:holdRepeat={() => buildShipsQty = Math.max(1, buildShipsQty - 1)} disabled={buildShipsQty <= 1}>−</button>
-                                <span class="qty-value">{buildShipsQty}</span>
-                                <button class="qty-btn" use:holdRepeat={() => buildShipsQty = Math.min(buildShipsQty + 1, maxBuildShips)} disabled={buildShipsQty >= maxBuildShips}>+</button>
-                                <button class="action-btn build-ships-btn" onclick={handleBuildShips} disabled={maxBuildShips < 1}>
-                                    Build Ship{buildShipsQty !== 1 ? 's' : ''}
-                                </button>
+                    </div>
+
+                    <!-- Player legend stays visible in replay mode -->
+                    <div class="legend-panel">
+                        <h2>Players</h2>
+                        {#each liveMapData?.players ?? [] as player}
+                            <div class="player-row">
+                                <span class="color-swatch" style="background: {player.color};"></span>
+                                <span class="player-name">{player.username}</span>
                             </div>
-                        {/if}
+                        {/each}
                     </div>
                 {/if}
 
-                {#if interactionMode === 'move_target'}
-                    <div class="actions-panel move-prompt">
-                        <p>Moving from <strong>{moveSourceSystem?.name}</strong></p>
-                        <p class="move-remaining">{availableShipsAtSource} ship{availableShipsAtSource !== 1 ? 's' : ''} available — select destination</p>
-                        <button class="action-btn cancel-move" onclick={cancelMoveMode}>Done moving from {moveSourceSystem?.name}</button>
-                    </div>
-                {/if}
+                {#if !replayMode}
+                    {#if liveMapData.current_turn}
+                        <div class="turn-indicator">Turn {liveMapData.current_turn}</div>
+                    {/if}
 
-                {#if interactionMode === 'move_count'}
-                    <div class="actions-panel move-count-panel">
-                        <p class="move-count-title">
-                            <strong>{moveSourceSystem?.name}</strong> → <strong>{moveTargetSystem?.name}</strong>
-                        </p>
-                        <div class="move-qty-row">
-                            <button class="qty-btn" use:holdRepeat={() => adjustMoveQuantity(-1)} disabled={moveQuantity <= 1}>−</button>
-                            <span class="qty-value">{moveQuantity}</span>
-                            <button class="qty-btn" use:holdRepeat={() => adjustMoveQuantity(1)} disabled={moveQuantity >= maxMoveQuantity}>+</button>
-                            <span class="qty-of">of {maxMoveQuantity}</span>
+                    {#if !replayMode && (isCompleted || (liveMapData?.current_turn ?? 1) > 1)}
+                        <button class="history-btn" onclick={enterReplayMode}>History</button>
+                    {/if}
+
+                    {#if isExpress}
+                        <div class="express-end-panel">
+                            <button class="express-end-btn" onclick={handleExpressEnd}>
+                                Express End
+                            </button>
+                            {#if expressEndError}
+                                <p class="express-end-error">{expressEndError}</p>
+                            {/if}
                         </div>
-                        <button class="action-btn confirm-move-btn" onclick={confirmMove}>Confirm Move</button>
-                        <button class="action-btn cancel-move" onclick={() => { interactionMode = 'move_target'; moveTargetSystem = null; }}>Back</button>
-                    </div>
-                {/if}
+                    {/if}
 
-                {#if interactionMode === 'mine_funding'}
-                    <div class="actions-panel mine-funding-panel">
-                        <p class="funding-title">Funding Mine at <strong>{mineTargetSystem?.name}</strong></p>
-                        <p class="funding-progress" class:ready={mineFundingTotal === 15}>
-                            {mineFundingTotal} / 15 materials
-                        </p>
-                        {#if eligibleFundingSystems.length === 0}
-                            <p class="funding-empty">No systems with available materials.</p>
-                        {/if}
-                        <button
-                            class="action-btn issue-mine-btn"
-                            onclick={issueMineBuild}
-                            disabled={mineFundingTotal !== 15}
-                        >Issue Order</button>
-                        <button class="action-btn cancel-move" onclick={cancelMineFunding}>Cancel</button>
+                    <div class="legend-panel">
+                        <h2>Players</h2>
+                        {#each liveMapData.players ?? [] as player}
+                            <div class="player-row">
+                                <span class="color-swatch" style="background: {player.color};"></span>
+                                <span class="player-name">{player.username}</span>
+                                {#if hasSubmitted(player.player_index)}
+                                    <span class="submitted-check" title="Submitted">✓</span>
+                                {/if}
+                                {#if player.home_system_name}
+                                    <span class="home-name">{player.home_system_name}</span>
+                                {/if}
+                            </div>
+                        {/each}
                     </div>
-                {/if}
 
-                {#if !isCompleted}
-                    <OrdersPanel
-                        orders={getOrders()}
-                        {systemLookup}
-                        playerColor={currentPlayer?.color ?? '#888'}
-                        submitted={isSubmitted()}
-                        onCancel={handleCancelOrder}
-                        onSubmit={handleSubmitTurn}
-                        bind:hoveredOrderId
-                        {orderError}
-                    />
+                    {#if selectedSystem && !isCompleted && !isSubmitted() && isMySystem && interactionMode === 'select'}
+                        <div class="actions-panel">
+                            {#if myShipsAtSelected > 0}
+                                <button class="action-btn move-btn" onclick={startMoveMode}>
+                                    Move Ships
+                                </button>
+                            {/if}
+                            {#if !myMineAtSelected && !mineOrderAtSelected}
+                                <button class="action-btn" onclick={startMineFunding}>Build Mine</button>
+                            {/if}
+                            {#if myMineAtSelected && !myYardAtSelected && !yardOrderAtSelected}
+                                <button class="action-btn" onclick={handleBuildShipyard}>Build Shipyard</button>
+                            {/if}
+                            {#if myYardAtSelected}
+                                <div class="build-ships-row">
+                                    <button class="qty-btn" use:holdRepeat={() => buildShipsQty = Math.max(1, buildShipsQty - 1)} disabled={buildShipsQty <= 1}>−</button>
+                                    <span class="qty-value">{buildShipsQty}</span>
+                                    <button class="qty-btn" use:holdRepeat={() => buildShipsQty = Math.min(buildShipsQty + 1, maxBuildShips)} disabled={buildShipsQty >= maxBuildShips}>+</button>
+                                    <button class="action-btn build-ships-btn" onclick={handleBuildShips} disabled={maxBuildShips < 1}>
+                                        Build Ship{buildShipsQty !== 1 ? 's' : ''}
+                                    </button>
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    {#if interactionMode === 'move_target'}
+                        <div class="actions-panel move-prompt">
+                            <p>Moving from <strong>{moveSourceSystem?.name}</strong></p>
+                            <p class="move-remaining">{availableShipsAtSource} ship{availableShipsAtSource !== 1 ? 's' : ''} available — select destination</p>
+                            <button class="action-btn cancel-move" onclick={cancelMoveMode}>Done moving from {moveSourceSystem?.name}</button>
+                        </div>
+                    {/if}
+
+                    {#if interactionMode === 'move_count'}
+                        <div class="actions-panel move-count-panel">
+                            <p class="move-count-title">
+                                <strong>{moveSourceSystem?.name}</strong> → <strong>{moveTargetSystem?.name}</strong>
+                            </p>
+                            <div class="move-qty-row">
+                                <button class="qty-btn" use:holdRepeat={() => adjustMoveQuantity(-1)} disabled={moveQuantity <= 1}>−</button>
+                                <span class="qty-value">{moveQuantity}</span>
+                                <button class="qty-btn" use:holdRepeat={() => adjustMoveQuantity(1)} disabled={moveQuantity >= maxMoveQuantity}>+</button>
+                                <span class="qty-of">of {maxMoveQuantity}</span>
+                            </div>
+                            <button class="action-btn confirm-move-btn" onclick={confirmMove}>Confirm Move</button>
+                            <button class="action-btn cancel-move" onclick={() => { interactionMode = 'move_target'; moveTargetSystem = null; }}>Back</button>
+                        </div>
+                    {/if}
+
+                    {#if interactionMode === 'mine_funding'}
+                        <div class="actions-panel mine-funding-panel">
+                            <p class="funding-title">Funding Mine at <strong>{mineTargetSystem?.name}</strong></p>
+                            <p class="funding-progress" class:ready={mineFundingTotal === 15}>
+                                {mineFundingTotal} / 15 materials
+                            </p>
+                            {#if eligibleFundingSystems.length === 0}
+                                <p class="funding-empty">No systems with available materials.</p>
+                            {/if}
+                            <button
+                                class="action-btn issue-mine-btn"
+                                onclick={issueMineBuild}
+                                disabled={mineFundingTotal !== 15}
+                            >Issue Order</button>
+                            <button class="action-btn cancel-move" onclick={cancelMineFunding}>Cancel</button>
+                        </div>
+                    {/if}
+
+                    {#if !isCompleted}
+                        <OrdersPanel
+                            orders={getOrders()}
+                            {systemLookup}
+                            playerColor={currentPlayer?.color ?? '#888'}
+                            submitted={isSubmitted()}
+                            onCancel={handleCancelOrder}
+                            onSubmit={handleSubmitTurn}
+                            bind:hoveredOrderId
+                            {orderError}
+                        />
+                    {/if}
                 {/if}
             </aside>
         </div>
@@ -1084,5 +1146,90 @@
     }
     .history-btn:hover {
         background: var(--color-bg-panel-hover);
+    }
+
+    .replay-panel {
+        background: var(--color-bg-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .replay-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .replay-label {
+        font-weight: bold;
+        color: var(--color-accent);
+        font-size: 0.9rem;
+    }
+    .exit-replay-btn {
+        background: none;
+        border: 1px solid var(--color-border-light);
+        border-radius: 4px;
+        color: var(--color-text-dim);
+        padding: 0.2rem 0.5rem;
+        cursor: pointer;
+        font-size: 0.75rem;
+    }
+    .exit-replay-btn:hover {
+        color: var(--color-text);
+        border-color: var(--color-text);
+    }
+    .replay-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .nav-btn {
+        background: var(--color-bg-panel-hover);
+        border: 1px solid var(--color-border-light);
+        border-radius: 4px;
+        color: var(--color-text);
+        width: 28px;
+        height: 28px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .nav-btn:disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+    }
+    .replay-turn-info {
+        flex: 1;
+        text-align: center;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .replay-of {
+        color: var(--color-text-dim);
+        font-size: 0.75rem;
+        display: block;
+    }
+    .play-btn {
+        background: var(--color-bg-panel-hover);
+        border: 1px solid var(--color-accent);
+        border-radius: 4px;
+        color: var(--color-accent);
+        padding: 0.4rem;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        width: 100%;
+    }
+    .play-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .play-btn:not(:disabled):hover {
+        background: rgba(52, 152, 219, 0.15);
     }
 </style>
