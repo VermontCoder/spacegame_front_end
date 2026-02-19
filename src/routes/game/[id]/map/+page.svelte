@@ -32,6 +32,17 @@
     let combatSystemId = $state(null);
     let pollingInterval = $state(null);
 
+    // Phase 4: replay state
+    let replayMode = $state(false);
+    let replayTurnIndex = $state(0);     // 0 = initial state, N = after turn N resolved
+    let allResolvedTurns = $state([]);   // [{turn_id, status, resolved_at}, ...]
+    let snapshotCache = $state({});      // keyed by turn_id → snapshot data
+    let replaySnapshot = $state(null);   // currently displayed snapshot
+    let transitShips = $state([]);       // [{playerIndex, count, fromSystemId, toSystemId}]
+    let animationActive = $state(false); // true: CSS transform transition fires on transit chits
+    let animating = $state(false);       // true while playTurn() is running
+    let replayAborted = $state(false);   // set true in exitReplayMode() to abort mid-animation
+
     const combatSystems = $derived(
         lastResolvedSnapshot
             ? [...new Set(lastResolvedSnapshot.combat_logs.map(l => l.system_id))]
@@ -531,6 +542,22 @@
         }
     }
 
+    async function enterReplayMode() {
+        replayAborted = false;
+        replayMode = true;
+    }
+
+    function exitReplayMode() {
+        replayAborted = true;
+        replayMode = false;
+        replaySnapshot = null;
+        transitShips = [];
+        animationActive = false;
+        animating = false;
+        replayTurnIndex = 0;
+        allResolvedTurns = [];
+    }
+
     onDestroy(() => {
         stopPolling();
     });
@@ -587,6 +614,10 @@
             <aside class="sidebar">
                 {#if liveMapData.current_turn}
                     <div class="turn-indicator">Turn {liveMapData.current_turn}</div>
+                {/if}
+
+                {#if !replayMode && (isCompleted || (liveMapData?.current_turn ?? 1) > 1)}
+                    <button class="history-btn" onclick={enterReplayMode}>History</button>
                 {/if}
 
                 {#if isExpress}
@@ -987,5 +1018,19 @@
         font-size: 0.8rem;
         color: var(--color-error);
         margin: 0;
+    }
+
+    .history-btn {
+        background: var(--color-bg-panel);
+        border: 1px solid var(--color-border-light);
+        border-radius: 4px;
+        color: var(--color-text-dim);
+        padding: 0.3rem 0.6rem;
+        cursor: pointer;
+        font-size: 0.8rem;
+        width: 100%;
+    }
+    .history-btn:hover {
+        background: var(--color-bg-panel-hover);
     }
 </style>
