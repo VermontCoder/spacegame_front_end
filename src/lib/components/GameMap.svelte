@@ -20,6 +20,7 @@
         onAdjustFunding = () => {},
         combatSystems = [],
         onCombatClick = () => {},
+        replayMode = false,
     } = $props();
 
     // Build a lookup from system_id to system object for jump line rendering
@@ -56,6 +57,16 @@
         if (playerIndex === -1) return '#888888'; // neutral
         const p = playerLookup[playerIndex];
         return p ? p.color : '#888888';
+    }
+
+    function arrowColor(arrow) {
+        return replayMode ? playerColor(arrow.order.player_index) : currentPlayerColor;
+    }
+
+    function arrowMarkerId(arrow) {
+        return replayMode
+            ? `url(#order-arrowhead-${arrow.order.player_index})`
+            : 'url(#order-arrowhead)';
     }
 
     function playerName(playerIndex) {
@@ -685,27 +696,34 @@
             <marker id="order-arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
                 <polygon points="0 0, 8 3, 0 6" fill={currentPlayerColor} opacity="0.8" />
             </marker>
+            <!-- Replay mode: one arrowhead per player color -->
+            {#each players as player}
+                <marker id="order-arrowhead-{player.player_index}" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill={player.color} opacity="0.8" />
+                </marker>
+            {/each}
         </defs>
         {#each moveOrderArrows as arrow}
             {@const isHighlighted = hoveredOrderId === arrow.order.order_id}
+            {@const color = arrowColor(arrow)}
             <line
                 x1={arrow.x1}
                 y1={arrow.y1}
                 x2={arrow.x2}
                 y2={arrow.y2}
-                stroke={currentPlayerColor}
+                stroke={color}
                 stroke-width={isHighlighted ? 3 : 2}
                 stroke-opacity={isHighlighted ? 1 : 0.6}
-                marker-end="url(#order-arrowhead)"
+                marker-end={arrowMarkerId(arrow)}
             />
             <!-- Ship count at midpoint -->
-            <circle cx={arrow.mx} cy={arrow.my} r="10" fill="var(--color-map-bg)" stroke={currentPlayerColor} stroke-width="1" opacity="0.9" />
+            <circle cx={arrow.mx} cy={arrow.my} r="10" fill="var(--color-map-bg)" stroke={color} stroke-width="1" opacity="0.9" />
             <text
                 x={arrow.mx}
                 y={arrow.my + 1}
                 text-anchor="middle"
                 dominant-baseline="middle"
-                fill={currentPlayerColor}
+                fill={color}
                 font-size="10"
                 font-weight="bold"
             >{arrow.order.quantity}</text>

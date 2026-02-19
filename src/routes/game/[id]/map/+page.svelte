@@ -672,6 +672,7 @@
                 onAdjustFunding={adjustFunding}
                 combatSystems={mapCombatSystems}
                 onCombatClick={(sysId) => { combatSystemId = sysId; }}
+                replayMode={replayMode}
             />
 
             <aside class="sidebar">
