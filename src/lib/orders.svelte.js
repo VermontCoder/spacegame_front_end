@@ -76,3 +76,9 @@ export function resetOrderState() {
     submitted = false;
     loading = false;
 }
+
+export async function loadSnapshot(gameId, turnId) {
+    const res = await apiFetch(`/games/${gameId}/turns/${turnId}/snapshot`);
+    if (!res.ok) return null;
+    return await res.json();
+}

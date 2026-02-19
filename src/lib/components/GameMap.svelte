@@ -16,6 +16,8 @@
         eligibleFundingSystems = [],
         mineFunding = {},
         onAdjustFunding = () => {},
+        combatSystems = [],
+        onCombatClick = () => {},
     } = $props();
 
     // Build a lookup from system_id to system object for jump line rendering
@@ -389,13 +391,22 @@
 
     // Move orders: compute arrow paths
     let moveOrderArrows = $derived.by(() => {
-        return orders
-            .filter(o => o.order_type === 'move_ships')
+        const allMoveOrders = orders.filter(o => o.order_type === 'move_ships');
+
+        // Detect bidirectional pairs (A→B and B→A both present)
+        const pairKeys = new Set();
+        const biPairs = new Set();
+        for (const o of allMoveOrders) {
+            const key = `${Math.min(o.source_system_id, o.target_system_id)}-${Math.max(o.source_system_id, o.target_system_id)}`;
+            if (pairKeys.has(key)) biPairs.add(key);
+            else pairKeys.add(key);
+        }
+
+        return allMoveOrders
             .map(o => {
                 const from = systemLookup[o.source_system_id];
                 const to = systemLookup[o.target_system_id];
                 if (!from || !to) return null;
-                // Shorten arrow to not overlap system circles
                 const dx = to.x - from.x;
                 const dy = to.y - from.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
@@ -403,16 +414,36 @@
                 const nx = dx / dist;
                 const ny = dy / dist;
                 const fromR = systemRadius(from) + 4;
-                const toR = systemRadius(to) + 6;
-                return {
-                    order: o,
-                    x1: from.x + nx * fromR,
-                    y1: from.y + ny * fromR,
-                    x2: to.x - nx * toR,
-                    y2: to.y - ny * toR,
-                    mx: (from.x + to.x) / 2,
-                    my: (from.y + to.y) / 2,
-                };
+
+                const pairKey = `${Math.min(o.source_system_id, o.target_system_id)}-${Math.max(o.source_system_id, o.target_system_id)}`;
+
+                if (biPairs.has(pairKey)) {
+                    // Half-arrow: source edge → just before midpoint, arrowheads face each other
+                    const midX = (from.x + to.x) / 2;
+                    const midY = (from.y + to.y) / 2;
+                    const GAP = 6; // viewBox units from center to each arrowhead tip
+                    const x1 = from.x + nx * fromR;
+                    const y1 = from.y + ny * fromR;
+                    const x2 = midX - nx * GAP;
+                    const y2 = midY - ny * GAP;
+                    return {
+                        order: o,
+                        x1, y1, x2, y2,
+                        mx: (x1 + x2) / 2,
+                        my: (y1 + y2) / 2,
+                    };
+                } else {
+                    const toR = systemRadius(to) + 6;
+                    return {
+                        order: o,
+                        x1: from.x + nx * fromR,
+                        y1: from.y + ny * fromR,
+                        x2: to.x - nx * toR,
+                        y2: to.y - ny * toR,
+                        mx: (from.x + to.x) / 2,
+                        my: (from.y + to.y) / 2,
+                    };
+                }
             })
             .filter(Boolean);
     });
@@ -683,34 +714,30 @@
             {@const sys = systemLookup[order.source_system_id]}
             {#if sys}
                 {@const pos = chitPositions(sys)}
-                <rect
-                    x={sys.x + pos.mine.dx - 7}
-                    y={sys.y + pos.mine.dy - 7}
-                    width="14" height="14"
-                    rx="2"
-                    fill={currentPlayerColor}
-                    opacity={hoveredOrderId === order.order_id ? 0.6 : 0.3}
-                    stroke={currentPlayerColor}
-                    stroke-width="1"
-                    stroke-dasharray="3 2"
-                />
+                {@const isHov = hoveredOrderId === order.order_id}
+                <g transform="translate({sys.x + pos.mine.dx - 7}, {sys.y + pos.mine.dy - 7})">
+                    <rect width="14" height="14" rx="2" fill="black" stroke="white" stroke-width={isHov ? 2 : 1.5} stroke-opacity={isHov ? 1 : 0.8}/>
+                    <!-- Mine icon scaled to fill tile (16×16 viewbox → 10×10, offset 2px) -->
+                    <g transform="translate(2, 2) scale(0.625)">
+                        <line x1="12" y1="2" x2="4" y2="12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                        <path d="M9 1L14 2L12 7L10 4.5Z" fill="white"/>
+                    </g>
+                </g>
             {/if}
         {/each}
         {#each buildYardOrders as order}
             {@const sys = systemLookup[order.source_system_id]}
             {#if sys}
                 {@const pos = chitPositions(sys)}
-                <rect
-                    x={sys.x + pos.shipyard.dx - 7}
-                    y={sys.y + pos.shipyard.dy - 7}
-                    width="14" height="14"
-                    rx="2"
-                    fill={currentPlayerColor}
-                    opacity={hoveredOrderId === order.order_id ? 0.6 : 0.3}
-                    stroke={currentPlayerColor}
-                    stroke-width="1"
-                    stroke-dasharray="3 2"
-                />
+                {@const isHov = hoveredOrderId === order.order_id}
+                <g transform="translate({sys.x + pos.shipyard.dx - 7}, {sys.y + pos.shipyard.dy - 7})">
+                    <rect width="14" height="14" rx="2" fill="black" stroke="white" stroke-width={isHov ? 2 : 1.5} stroke-opacity={isHov ? 1 : 0.8}/>
+                    <!-- Shipyard icon scaled to fill tile (16×16 viewbox → 10×10, offset 2px) -->
+                    <g transform="translate(2, 2) scale(0.625)">
+                        <rect x="2" y="8" width="12" height="6" rx="1" fill="none" stroke="white" stroke-width="1.5"/>
+                        <polygon points="8,2 13,8 3,8" fill="none" stroke="white" stroke-width="1.5"/>
+                    </g>
+                </g>
             {/if}
         {/each}
     </svg>
@@ -758,6 +785,27 @@
                     <span class="ship-count">{shipLabel}</span>
                 {/if}
             </div>
+        {/each}
+    {/key}
+
+    <!-- Combat badges (HTML overlays) -->
+    {#key chitVersion}
+        {#each combatSystems as sysId (sysId)}
+            {@const sys = systems.find(s => s.system_id === sysId)}
+            {#if sys}
+                {@const screenPos = viewBoxToScreen(sys.x, sys.y)}
+                {@const r = systemRadius(sys)}
+                {@const scale = chitScale()}
+                {@const offsetY = (r + 20) * scale}
+                <div
+                    class="combat-badge"
+                    style="left: {screenPos.x}px; top: {screenPos.y - offsetY}px;"
+                    onclick={() => onCombatClick(sysId)}
+                    role="button"
+                    tabindex="0"
+                    onkeydown={(e) => e.key === 'Enter' && onCombatClick(sysId)}
+                >&#9876;</div>
+            {/if}
         {/each}
     {/key}
 
@@ -983,6 +1031,30 @@
     }
 
     /* Mine funding counters */
+    /* Combat badges */
+    .combat-badge {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        background: rgba(220, 50, 50, 0.85);
+        color: white;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        cursor: pointer;
+        pointer-events: all;
+        z-index: 20;
+        border: 1px solid rgba(255,255,255,0.5);
+    }
+
+    .combat-badge:hover {
+        background: rgba(220, 50, 50, 1);
+        transform: translate(-50%, -50%) scale(1.15);
+    }
+
     .fund-counter {
         position: absolute;
         transform: translate(-50%, 0);

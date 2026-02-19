@@ -1,11 +1,13 @@
 <script>
-    import { untrack } from 'svelte';
+    import { untrack, onDestroy } from 'svelte';
     import GameMap from '$lib/components/GameMap.svelte';
     import OrdersPanel from '$lib/components/OrdersPanel.svelte';
-    import { getUser } from '$lib/auth.svelte.js';
+    import CombatModal from '$lib/components/CombatModal.svelte';
+    import { getUser, apiFetch } from '$lib/auth.svelte.js';
     import {
         getOrders, isOrdersLoading, isSubmitted,
         loadOrders, loadTurnStatus, createOrder, cancelOrder, submitTurn, resetOrderState, setSubmitted,
+        loadSnapshot,
     } from '$lib/orders.svelte.js';
 
     let { data } = $props();
@@ -23,16 +25,28 @@
     let hoveredOrderId = $state(null);
     let turnStatuses = $state([]);
 
+    // Phase 3: turn resolution state
+    let liveMapData = $state(mapData);
+    let lastResolvedSnapshot = $state(null);
+    let combatSystemId = $state(null);
+    let pollingInterval = $state(null);
+
+    const combatSystems = $derived(
+        lastResolvedSnapshot
+            ? [...new Set(lastResolvedSnapshot.combat_logs.map(l => l.system_id))]
+            : []
+    );
+
     // Current player info
     let currentPlayer = $derived(
-        mapData?.players?.find(p => p.username === getUser()?.username) ?? null
+        liveMapData?.players?.find(p => p.username === getUser()?.username) ?? null
     );
     let currentPlayerIndex = $derived(currentPlayer?.player_index ?? null);
 
     // Build player lookup by player_index
     let playerLookup = $derived(
-        mapData?.players
-            ? Object.fromEntries(mapData.players.map(p => [p.player_index, p]))
+        liveMapData?.players
+            ? Object.fromEntries(liveMapData.players.map(p => [p.player_index, p]))
             : {}
     );
 
@@ -55,7 +69,7 @@
 
     // System materials adjusted for pending build orders (for map display)
     let displaySystems = $derived.by(() => {
-        return (mapData?.systems ?? []).map(s => {
+        return (liveMapData?.systems ?? []).map(s => {
             const committed = materialsCommittedOut[s.system_id] ?? 0;
             if (committed === 0) return s;
             return { ...s, materials: Math.max(0, s.materials - committed) };
@@ -70,7 +84,7 @@
     // Build adjacency from jump lines
     let adjacency = $derived.by(() => {
         const adj = {};
-        for (const jl of (mapData?.jump_lines ?? [])) {
+        for (const jl of (liveMapData?.jump_lines ?? [])) {
             if (!adj[jl.from_system_id]) adj[jl.from_system_id] = new Set();
             if (!adj[jl.to_system_id]) adj[jl.to_system_id] = new Set();
             adj[jl.from_system_id].add(jl.to_system_id);
@@ -101,7 +115,7 @@
     // Available ships for the current player at any system, after committed move orders
     function availableShipsAt(systemId) {
         if (systemId == null || currentPlayerIndex == null) return 0;
-        const entry = (mapData?.ships ?? []).find(
+        const entry = (liveMapData?.ships ?? []).find(
             s => s.system_id === systemId && s.player_index === currentPlayerIndex
         );
         const total = entry?.count ?? 0;
@@ -137,7 +151,7 @@
         }
 
         const handledSids = new Set();
-        const result = (mapData?.ships ?? []).map(s => {
+        const result = (liveMapData?.ships ?? []).map(s => {
             if (s.player_index !== currentPlayerIndex) return s;
             handledSids.add(s.system_id);
             const committed = shipsCommittedOut[s.system_id] ?? 0;
@@ -216,7 +230,7 @@
     // Structures at selected system
     let structsAtSelected = $derived.by(() => {
         if (!selectedSystem) return [];
-        return (mapData?.structures ?? []).filter(s => s.system_id === selectedSystem.system_id);
+        return (liveMapData?.structures ?? []).filter(s => s.system_id === selectedSystem.system_id);
     });
 
     let myMineAtSelected = $derived(
@@ -244,7 +258,16 @@
     );
 
     // Turn ID
-    let turnId = $derived(mapData?.current_turn ?? 1);
+    let turnId = $derived(liveMapData?.current_turn ?? 1);
+
+    // Victory
+    let isCompleted = $derived(liveMapData?.status === 'completed');
+    let winnerPlayer = $derived(
+        liveMapData?.winner_player_index != null
+            ? (liveMapData?.players ?? []).find(p => p.player_index === liveMapData.winner_player_index) ?? null
+            : null
+    );
+    let isMyVictory = $derived(winnerPlayer?.username === getUser()?.username);
 
     // Load orders and turn status once auth is ready
     let currentUser = $derived(getUser());
@@ -429,13 +452,69 @@
     async function handleSubmitTurn() {
         orderError = null;
         try {
-            await submitTurn(gameId, turnId);
-            // Refresh turn statuses to show checkmark
-            turnStatuses = await loadTurnStatus(gameId, turnId);
+            const result = await submitTurn(gameId, turnId);
+            if (result?.turn_resolved) {
+                await refreshAfterResolution();
+            } else {
+                // Refresh turn statuses to show checkmark
+                turnStatuses = await loadTurnStatus(gameId, turnId);
+                startPolling();
+            }
         } catch (e) {
             orderError = e.message;
         }
     }
+
+    async function refreshAfterResolution() {
+        const resolvedTurnId = turnId;
+        // Fetch updated map data
+        const res = await apiFetch(`/games/${gameId}/map`);
+        if (res.ok) {
+            liveMapData = await res.json();
+        }
+        // Load snapshot of the turn that just resolved (for combat data)
+        const snap = await loadSnapshot(gameId, resolvedTurnId);
+        lastResolvedSnapshot = snap;
+        // Reset orders for the new turn
+        resetOrderState();
+        selectedSystem = null;
+        interactionMode = 'select';
+        // Refresh turn statuses for the new turn
+        turnStatuses = await loadTurnStatus(gameId, liveMapData?.current_turn ?? 1);
+        stopPolling();
+    }
+
+    function startPolling() {
+        if (pollingInterval) return;
+        pollingInterval = setInterval(async () => {
+            const res = await apiFetch(`/games/${gameId}/map`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.current_turn !== turnId) {
+                // Turn advanced — resolution happened
+                const resolvedTurnId = turnId;
+                liveMapData = data;
+                const snap = await loadSnapshot(gameId, resolvedTurnId);
+                lastResolvedSnapshot = snap;
+                resetOrderState();
+                selectedSystem = null;
+                interactionMode = 'select';
+                turnStatuses = await loadTurnStatus(gameId, data.current_turn);
+                stopPolling();
+            }
+        }, 5000);
+    }
+
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+
+    onDestroy(() => {
+        stopPolling();
+    });
 
     // Check if player has submitted
     function hasSubmitted(playerIndex) {
@@ -445,18 +524,32 @@
 </script>
 
 <div class="map-page">
-    <h1>Star Map — {mapData?.game_name ?? `Game ${gameId}`}</h1>
+    <h1>Star Map — {liveMapData?.game_name ?? `Game ${gameId}`}</h1>
+
+    {#if isCompleted && winnerPlayer}
+        <div class="victory-banner" class:my-victory={isMyVictory}>
+            <span class="victory-icon">{isMyVictory ? '🏆' : '⚔️'}</span>
+            <span class="victory-text">
+                {#if isMyVictory}
+                    Victory! You captured Founder's World and won the game!
+                {:else}
+                    <span style="color: {winnerPlayer.color}; font-weight: bold;">{winnerPlayer.username}</span>
+                    captured Founder's World — Game Over.
+                {/if}
+            </span>
+        </div>
+    {/if}
 
     {#if error}
         <p class="error">{error}</p>
-    {:else if mapData}
+    {:else if liveMapData}
         <div class="map-layout">
             <GameMap
                 systems={displaySystems}
-                jumpLines={mapData.jump_lines}
+                jumpLines={liveMapData.jump_lines}
                 ships={displayShips}
-                structures={mapData.structures ?? []}
-                players={mapData.players ?? []}
+                structures={liveMapData.structures ?? []}
+                players={liveMapData.players ?? []}
                 orders={getOrders()}
                 {moveSourceSystem}
                 {validMoveTargets}
@@ -468,16 +561,18 @@
                 {eligibleFundingSystems}
                 {mineFunding}
                 onAdjustFunding={adjustFunding}
+                {combatSystems}
+                onCombatClick={(sysId) => { combatSystemId = sysId; }}
             />
 
             <aside class="sidebar">
-                {#if mapData.current_turn}
-                    <div class="turn-indicator">Turn {mapData.current_turn}</div>
+                {#if liveMapData.current_turn}
+                    <div class="turn-indicator">Turn {liveMapData.current_turn}</div>
                 {/if}
 
                 <div class="legend-panel">
                     <h2>Players</h2>
-                    {#each mapData.players ?? [] as player}
+                    {#each liveMapData.players ?? [] as player}
                         <div class="player-row">
                             <span class="color-swatch" style="background: {player.color};"></span>
                             <span class="player-name">{player.username}</span>
@@ -574,6 +669,18 @@
     {:else}
         <p>Loading...</p>
     {/if}
+
+    {#if combatSystemId !== null && lastResolvedSnapshot}
+        {@const combatSystem = liveMapData.systems?.find(s => s.system_id === combatSystemId)}
+        {@const combatLogs = lastResolvedSnapshot.combat_logs.filter(l => l.system_id === combatSystemId)}
+        <CombatModal
+            system={combatSystem}
+            logs={combatLogs}
+            players={liveMapData.players}
+            turnId={lastResolvedSnapshot.turn_id}
+            onClose={() => { combatSystemId = null; }}
+        />
+    {/if}
 </div>
 
 <style>
@@ -587,6 +694,33 @@
 
     .error {
         color: var(--color-error);
+    }
+
+    .victory-banner {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(52, 73, 94, 0.9);
+        border: 2px solid #f39c12;
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+        color: #e0e0e0;
+    }
+
+    .victory-banner.my-victory {
+        background: rgba(39, 174, 96, 0.2);
+        border-color: #2ecc71;
+    }
+
+    .victory-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .victory-text {
+        line-height: 1.4;
     }
 
     .map-layout {
