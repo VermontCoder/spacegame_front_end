@@ -796,7 +796,7 @@
                 {@const screenPos = viewBoxToScreen(sys.x, sys.y)}
                 {@const r = systemRadius(sys)}
                 {@const scale = chitScale()}
-                {@const offsetY = (r + 20) * scale}
+                {@const offsetY = (r + 22.5) * scale + 16}
                 <div
                     class="combat-badge"
                     style="left: {screenPos.x}px; top: {screenPos.y - offsetY}px;"

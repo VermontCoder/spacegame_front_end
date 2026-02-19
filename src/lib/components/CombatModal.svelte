@@ -23,6 +23,7 @@
     }
 
     function getPlayerName(playerIndex) {
+        if (playerIndex === -1) return "Founder's World";
         const player = players?.find(p => p.player_index === playerIndex);
         return player?.username || `Player ${playerIndex}`;
     }

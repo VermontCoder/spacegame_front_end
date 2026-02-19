@@ -87,7 +87,6 @@
         <button
             class="submit-btn"
             onclick={onSubmit}
-            disabled={orders.length === 0}
         >Submit Turn</button>
     {/if}
 </div>

@@ -260,6 +260,24 @@
     // Turn ID
     let turnId = $derived(liveMapData?.current_turn ?? 1);
 
+    // Express game
+    let isExpress = $derived(liveMapData?.is_express ?? false);
+    let expressEndError = $state(null);
+
+    async function handleExpressEnd() {
+        expressEndError = null;
+        try {
+            const res = await apiFetch(`/games/${gameId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail ?? 'Failed to delete game');
+            }
+            window.location.href = '/';
+        } catch (e) {
+            expressEndError = e.message;
+        }
+    }
+
     // Victory
     let isCompleted = $derived(liveMapData?.status === 'completed');
     let winnerPlayer = $derived(
@@ -570,6 +588,17 @@
                     <div class="turn-indicator">Turn {liveMapData.current_turn}</div>
                 {/if}
 
+                {#if isExpress}
+                    <div class="express-end-panel">
+                        <button class="express-end-btn" onclick={handleExpressEnd}>
+                            Express End
+                        </button>
+                        {#if expressEndError}
+                            <p class="express-end-error">{expressEndError}</p>
+                        {/if}
+                    </div>
+                {/if}
+
                 <div class="legend-panel">
                     <h2>Players</h2>
                     {#each liveMapData.players ?? [] as player}
@@ -586,7 +615,7 @@
                     {/each}
                 </div>
 
-                {#if selectedSystem && !isSubmitted() && isMySystem && interactionMode === 'select'}
+                {#if selectedSystem && !isCompleted && !isSubmitted() && isMySystem && interactionMode === 'select'}
                     <div class="actions-panel">
                         {#if myShipsAtSelected > 0}
                             <button class="action-btn move-btn" onclick={startMoveMode}>
@@ -654,16 +683,18 @@
                     </div>
                 {/if}
 
-                <OrdersPanel
-                    orders={getOrders()}
-                    {systemLookup}
-                    playerColor={currentPlayer?.color ?? '#888'}
-                    submitted={isSubmitted()}
-                    onCancel={handleCancelOrder}
-                    onSubmit={handleSubmitTurn}
-                    bind:hoveredOrderId
-                    {orderError}
-                />
+                {#if !isCompleted}
+                    <OrdersPanel
+                        orders={getOrders()}
+                        {systemLookup}
+                        playerColor={currentPlayer?.color ?? '#888'}
+                        submitted={isSubmitted()}
+                        onCancel={handleCancelOrder}
+                        onSubmit={handleSubmitTurn}
+                        bind:hoveredOrderId
+                        {orderError}
+                    />
+                {/if}
             </aside>
         </div>
     {:else}
@@ -733,7 +764,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
-        min-width: 220px;
+        width: 240px;
+        flex-shrink: 0;
     }
 
     .turn-indicator {
@@ -926,5 +958,33 @@
     .issue-mine-btn:disabled {
         opacity: 0.35;
         cursor: not-allowed;
+    }
+
+    .express-end-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .express-end-btn {
+        width: 100%;
+        padding: 0.4rem 0.6rem;
+        background: rgba(231, 76, 60, 0.15);
+        border: 1px solid var(--color-error);
+        border-radius: 4px;
+        color: var(--color-error);
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .express-end-btn:hover {
+        background: rgba(231, 76, 60, 0.3);
+    }
+
+    .express-end-error {
+        font-size: 0.8rem;
+        color: var(--color-error);
+        margin: 0;
     }
 </style>
