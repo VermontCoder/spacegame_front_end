@@ -1,5 +1,5 @@
 <script>
-    import { untrack, onDestroy } from 'svelte';
+    import { untrack, onDestroy, tick } from 'svelte';
     import GameMap from '$lib/components/GameMap.svelte';
     import OrdersPanel from '$lib/components/OrdersPanel.svelte';
     import CombatModal from '$lib/components/CombatModal.svelte';
@@ -618,7 +618,70 @@
     }
 
     async function playTurn(n) {
-        // Implemented in Task 6
+        if (animating || n <= 0) return;
+        replayAborted = false;
+
+        // Load pre-state (snapshot n-1) and post-state (snapshot n) in parallel
+        const [preSnap, postSnap] = await Promise.all([
+            loadCachedSnapshot(gameId, n - 1),
+            loadCachedSnapshot(gameId, n),
+        ]);
+        if (!preSnap || !postSnap || replayAborted) return;
+
+        animating = true;
+
+        // Get move orders from the post-turn snapshot
+        const moveOrders = (postSnap.orders ?? []).filter(o => o.order_type === 'move_ships');
+
+        // How many ships each player moves out of each source system
+        const movedOut = {};  // key: `${player_index}-${system_id}` → total quantity
+        for (const o of moveOrders) {
+            const key = `${o.player_index}-${o.source_system_id}`;
+            movedOut[key] = (movedOut[key] ?? 0) + o.quantity;
+        }
+
+        // Pre-state ships with transit ships removed from sources (they become transit chits)
+        const preShipsAdjusted = (preSnap.ships ?? [])
+            .map(s => {
+                const moved = movedOut[`${s.player_index}-${s.system_id}`] ?? 0;
+                if (moved === 0) return s;
+                const newCount = Math.max(0, s.count - moved);
+                return newCount > 0 ? { ...s, count: newCount } : null;
+            })
+            .filter(Boolean);
+
+        // Transit ship entries
+        const newTransitShips = moveOrders.map(o => ({
+            playerIndex: o.player_index,
+            count: o.quantity,
+            fromSystemId: o.source_system_id,
+            toSystemId: o.target_system_id,
+        }));
+
+        // --- Phase 1: render pre-state with transit chits at source positions ---
+        replaySnapshot = { ...preSnap, ships: preShipsAdjusted };
+        transitShips = newTransitShips;
+        animationActive = false;
+
+        // Wait for Svelte to paint the transit chits at their FROM positions
+        await tick();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        if (replayAborted) { animating = false; transitShips = []; return; }
+
+        // --- Phase 2: trigger CSS transition — chits slide to destinations ---
+        animationActive = true;
+
+        // Wait for the 2s CSS transition to complete (with a small buffer)
+        await new Promise(resolve => setTimeout(resolve, 2200));
+
+        if (replayAborted) { animating = false; transitShips = []; animationActive = false; return; }
+
+        // --- Phase 3: snap to post-state ---
+        transitShips = [];
+        animationActive = false;
+        replaySnapshot = postSnap;
+        animating = false;
     }
 
     onDestroy(() => {
