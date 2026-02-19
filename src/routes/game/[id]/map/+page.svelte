@@ -619,6 +619,7 @@
 
     async function playTurn(n) {
         if (animating || n <= 0) return;
+        animating = true;
         replayAborted = false;
 
         // Load pre-state (snapshot n-1) and post-state (snapshot n) in parallel
@@ -626,9 +627,10 @@
             loadCachedSnapshot(gameId, n - 1),
             loadCachedSnapshot(gameId, n),
         ]);
-        if (!preSnap || !postSnap || replayAborted) return;
-
-        animating = true;
+        if (!preSnap || !postSnap || replayAborted) {
+            animating = false;
+            return;
+        }
 
         // Get move orders from the post-turn snapshot
         const moveOrders = (postSnap.orders ?? []).filter(o => o.order_type === 'move_ships');
@@ -667,7 +669,7 @@
         await tick();
         await new Promise(resolve => requestAnimationFrame(resolve));
 
-        if (replayAborted) { animating = false; transitShips = []; return; }
+        if (replayAborted) { animating = false; transitShips = []; replaySnapshot = null; return; }
 
         // --- Phase 2: trigger CSS transition — chits slide to destinations ---
         animationActive = true;
