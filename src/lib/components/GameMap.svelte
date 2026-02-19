@@ -23,6 +23,7 @@
         replayMode = false,
         transitShips = [],
         animationActive = false,
+        newStructures = [],
     } = $props();
 
     // Build a lookup from system_id to system object for jump line rendering
@@ -428,6 +429,28 @@
         }).filter(Boolean);
     });
 
+    // New structure chit data: structures present in post-state but not pre-state, fade in during animation
+    let newStructureChitData = $derived.by(() => {
+        if (!newStructures || newStructures.length === 0) return [];
+        const scale = chitScale();
+        const size = CHIT_SIZE * scale;
+        return newStructures.map(ns => {
+            const sys = systemLookup[ns.system_id];
+            if (!sys) return null;
+            const pos = chitPositions(sys);
+            const chitPos = ns.structure_type === 'mine' ? pos.mine : pos.shipyard;
+            const screenPos = viewBoxToScreen(sys.x + chitPos.dx, sys.y + chitPos.dy);
+            return {
+                key: `new-struct-${ns.system_id}-${ns.structure_type}`,
+                playerIndex: ns.player_index,
+                structureType: ns.structure_type,
+                left: screenPos.x - size / 2,
+                top: screenPos.y - size / 2,
+                size,
+            };
+        }).filter(Boolean);
+    });
+
     // --- Order visualization data ---
     let currentPlayerColor = $derived(
         currentPlayerIndex != null ? playerColor(currentPlayerIndex) : '#888'
@@ -810,7 +833,7 @@
                 background: {playerColor(chit.playerIndex)};
                 font-size: {chit.fontSize}px;
                 transform: translate({animationActive ? chit.toDx : 0}px, {animationActive ? chit.toDy : 0}px);
-                transition: transform 2s ease-in-out;
+                transition: transform 4s ease-in-out;
                 z-index: 6;
             "
         >
@@ -818,6 +841,35 @@
                 <path d="M10 1 C10 1, 6 7, 6 14 L6 20 L3.5 24 L3.5 27 L7 23.5 L7 27 L8.5 25 L10 27 L11.5 25 L13 27 L13 23.5 L16.5 27 L16.5 24 L14 20 L14 14 C14 7, 10 1, 10 1Z" fill="white"/>
             </svg>
             <span class="ship-count">{chit.label}</span>
+        </div>
+    {/each}
+
+    <!-- New structure chits — fade in during animation, outside {#key} so transition survives viewBox updates -->
+    {#each newStructureChitData as chit (chit.key)}
+        <div
+            class="chit"
+            style="
+                left: {chit.left}px;
+                top: {chit.top}px;
+                width: {chit.size}px;
+                height: {chit.size}px;
+                background: {playerColor(chit.playerIndex)};
+                opacity: {animationActive ? 1 : 0};
+                transition: opacity 4s ease-in;
+                z-index: 6;
+            "
+        >
+            {#if chit.structureType === 'mine'}
+                <svg viewBox="0 0 16 16" class="chit-icon">
+                    <line x1="12" y1="2" x2="4" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M9 1L14 2L12 7L10 4.5Z" fill="currentColor"/>
+                </svg>
+            {:else}
+                <svg viewBox="0 0 16 16" class="chit-icon">
+                    <rect x="2" y="8" width="12" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                    <polygon points="8,2 13,8 3,8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            {/if}
         </div>
     {/each}
 

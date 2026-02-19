@@ -39,6 +39,7 @@
     let snapshotCache = $state({});      // keyed by turn_id → snapshot data
     let replaySnapshot = $state(null);   // currently displayed snapshot
     let transitShips = $state([]);       // [{playerIndex, count, fromSystemId, toSystemId}]
+    let newStructures = $state([]);      // structures in post-state but not pre-state (for fade-in)
     let animationActive = $state(false); // true: CSS transform transition fires on transit chits
     let animating = $state(false);       // true while playTurn() is running
     let replayAborted = $state(false);   // set true in exitReplayMode() to abort mid-animation
@@ -603,6 +604,7 @@
         replayMode = false;
         replaySnapshot = null;
         transitShips = [];
+        newStructures = [];
         animationActive = false;
         animating = false;
         replayTurnIndex = 0;
@@ -660,9 +662,18 @@
             toSystemId: o.target_system_id,
         }));
 
+        // Compute newly built structures (in post-state but not in pre-state)
+        const preStructSet = new Set(
+            (preSnap.structures ?? []).map(s => `${s.system_id}-${s.structure_type}`)
+        );
+        const newStructsList = (postSnap.structures ?? []).filter(
+            s => !preStructSet.has(`${s.system_id}-${s.structure_type}`)
+        );
+
         // --- Phase 1: render pre-state with transit chits at source positions ---
         replaySnapshot = { ...preSnap, ships: preShipsAdjusted };
         transitShips = newTransitShips;
+        newStructures = newStructsList;
         animationActive = false;
 
         // Wait for Svelte to paint the transit chits at their FROM positions
@@ -674,13 +685,14 @@
         // --- Phase 2: trigger CSS transition — chits slide to destinations ---
         animationActive = true;
 
-        // Wait for the 2s CSS transition to complete (with a small buffer)
-        await new Promise(resolve => setTimeout(resolve, 2200));
+        // Wait for the 4s CSS transition to complete (with a small buffer)
+        await new Promise(resolve => setTimeout(resolve, 4200));
 
         if (replayAborted) { animating = false; transitShips = []; animationActive = false; return; }
 
         // --- Phase 3: snap to post-state ---
         transitShips = [];
+        newStructures = [];
         animationActive = false;
         replaySnapshot = postSnap;
         animating = false;
@@ -740,6 +752,7 @@
                 replayMode={replayMode}
                 {transitShips}
                 {animationActive}
+                {newStructures}
             />
 
             <aside class="sidebar">
