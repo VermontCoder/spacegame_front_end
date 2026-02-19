@@ -21,6 +21,8 @@
         combatSystems = [],
         onCombatClick = () => {},
         replayMode = false,
+        transitShips = [],
+        animationActive = false,
     } = $props();
 
     // Build a lookup from system_id to system object for jump line rendering
@@ -397,6 +399,35 @@
         activeViewBox ? `${activeViewBox.x}-${activeViewBox.y}-${activeViewBox.w}` : '0'
     );
 
+    // Transit ship chit data: positioned at fromSystem, translates to toSystem when animationActive
+    let transitChitData = $derived.by(() => {
+        if (!transitShips || transitShips.length === 0) return [];
+        const scale = chitScale();
+        const shipH = CHIT_SIZE * scale * 1.5;
+        return transitShips.map(ts => {
+            const fromSys = systemLookup[ts.fromSystemId];
+            const toSys = systemLookup[ts.toSystemId];
+            if (!fromSys || !toSys) return null;
+            const pos = chitPositions(fromSys).ships;
+            const fromScreen = viewBoxToScreen(fromSys.x + pos.dx, fromSys.y + pos.dy);
+            const toScreen = viewBoxToScreen(toSys.x + pos.dx, toSys.y + pos.dy);
+            const label = String(ts.count);
+            const shipW = shipH + label.length * shipH * 0.45;
+            return {
+                key: `${ts.playerIndex}-${ts.fromSystemId}-${ts.toSystemId}`,
+                playerIndex: ts.playerIndex,
+                label,
+                left: fromScreen.x - shipW / 2 - 2,
+                top: fromScreen.y - shipH / 2,
+                translateX: animationActive ? toScreen.x - fromScreen.x : 0,
+                translateY: animationActive ? toScreen.y - fromScreen.y : 0,
+                width: shipW,
+                height: shipH,
+                fontSize: Math.max(9, shipH * 0.55),
+            };
+        }).filter(Boolean);
+    });
+
     // --- Order visualization data ---
     let currentPlayerColor = $derived(
         currentPlayerIndex != null ? playerColor(currentPlayerIndex) : '#888'
@@ -480,6 +511,7 @@
         xmlns="http://www.w3.org/2000/svg"
         class="star-map"
         class:panning={isPanning}
+        class:no-interact={animationActive}
         onwheel={handleWheel}
         onmousedown={handlePanStart}
         onmousemove={handlePanMove}
@@ -766,6 +798,29 @@
 
     <button class="reset-btn" onclick={resetView}>Reset View</button>
 
+    <!-- Transit ship chits — outside {#key} so CSS transitions survive viewBox updates -->
+    {#each transitChitData as chit (chit.key)}
+        <div
+            class="chit chit-ships"
+            style="
+                left: {chit.left}px;
+                top: {chit.top}px;
+                width: {chit.width}px;
+                height: {chit.height}px;
+                background: {playerColor(chit.playerIndex)};
+                font-size: {chit.fontSize}px;
+                transform: translate({chit.translateX}px, {chit.translateY}px);
+                transition: {animationActive ? 'transform 2s ease-in-out' : 'none'};
+                z-index: 6;
+            "
+        >
+            <svg viewBox="0 0 20 28" class="ship-icon">
+                <path d="M10 1 C10 1, 6 7, 6 14 L6 20 L3.5 24 L3.5 27 L7 23.5 L7 27 L8.5 25 L10 27 L11.5 25 L13 27 L13 23.5 L16.5 27 L16.5 24 L14 20 L14 14 C14 7, 10 1, 10 1Z" fill="white"/>
+            </svg>
+            <span class="ship-count">{chit.label}</span>
+        </div>
+    {/each}
+
     <!-- Game chits (HTML overlays positioned over SVG) -->
     {#key chitVersion}
         {#each chitData as chit}
@@ -922,6 +977,11 @@
 
     .star-map.panning {
         cursor: grabbing;
+    }
+
+    .star-map.no-interact {
+        pointer-events: none;
+        cursor: default;
     }
 
     .system-node {

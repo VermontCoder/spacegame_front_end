@@ -673,6 +673,8 @@
                 combatSystems={mapCombatSystems}
                 onCombatClick={(sysId) => { combatSystemId = sysId; }}
                 replayMode={replayMode}
+                {transitShips}
+                {animationActive}
             />
 
             <aside class="sidebar">
