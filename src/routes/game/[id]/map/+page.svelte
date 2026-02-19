@@ -614,7 +614,7 @@
         if (animating) return;
         replayTurnIndex = n;
         const snap = await loadCachedSnapshot(gameId, n);
-        replaySnapshot = snap;
+        if (snap) replaySnapshot = snap;
     }
 
     async function playTurn(n) {
