@@ -299,6 +299,32 @@
     );
     let isMyVictory = $derived(winnerPlayer?.username === getUser()?.username);
 
+    // Replay: use snapshot data for map display; live: use the existing derived values
+    let maxResolvedTurnId = $derived(
+        allResolvedTurns.length > 0 ? allResolvedTurns[allResolvedTurns.length - 1].turn_id : 0
+    );
+
+    let mapSystems = $derived(
+        replayMode && replaySnapshot ? replaySnapshot.systems : displaySystems
+    );
+    let mapShips = $derived(
+        replayMode && replaySnapshot ? replaySnapshot.ships : displayShips
+    );
+    let mapStructures = $derived(
+        replayMode && replaySnapshot ? replaySnapshot.structures : (liveMapData?.structures ?? [])
+    );
+    let mapOrders = $derived(
+        replayMode && replaySnapshot ? replaySnapshot.orders : getOrders()
+    );
+    let mapCombatSystems = $derived(
+        replayMode && replaySnapshot
+            ? [...new Set(replaySnapshot.combat_logs.map(l => l.system_id))]
+            : combatSystems
+    );
+    let activeCombatSnapshot = $derived(
+        replayMode && replaySnapshot ? replaySnapshot : lastResolvedSnapshot
+    );
+
     // Load orders and turn status once auth is ready
     let currentUser = $derived(getUser());
     $effect(() => {
@@ -542,8 +568,32 @@
         }
     }
 
+    async function fetchAllResolvedTurns(gid) {
+        const res = await apiFetch(`/games/${gid}/turns`);
+        if (!res.ok) return [];
+        const turns = await res.json();
+        return turns
+            .filter(t => t.status === 'resolved')
+            .sort((a, b) => a.turn_id - b.turn_id);
+    }
+
+    async function loadCachedSnapshot(gid, turnId) {
+        if (snapshotCache[turnId]) return snapshotCache[turnId];
+        const snap = await loadSnapshot(gid, turnId);
+        if (snap) snapshotCache = { ...snapshotCache, [turnId]: snap };
+        return snap ?? null;
+    }
+
     async function enterReplayMode() {
         replayAborted = false;
+        const turns = await fetchAllResolvedTurns(gameId);
+        allResolvedTurns = turns;
+        const latestTurnId = turns.length > 0 ? turns[turns.length - 1].turn_id : 0;
+        replayTurnIndex = latestTurnId;
+        // Pre-load turn 0 (initial) and the latest resolved snapshot
+        await loadCachedSnapshot(gameId, 0);
+        if (latestTurnId > 0) await loadCachedSnapshot(gameId, latestTurnId);
+        replaySnapshot = snapshotCache[latestTurnId] ?? snapshotCache[0] ?? null;
         replayMode = true;
     }
 
@@ -592,12 +642,12 @@
     {:else if liveMapData}
         <div class="map-layout">
             <GameMap
-                systems={displaySystems}
+                systems={mapSystems}
                 jumpLines={liveMapData.jump_lines}
-                ships={displayShips}
-                structures={liveMapData.structures ?? []}
+                ships={mapShips}
+                structures={mapStructures}
                 players={liveMapData.players ?? []}
-                orders={getOrders()}
+                orders={mapOrders}
                 {moveSourceSystem}
                 {validMoveTargets}
                 {hoveredOrderId}
@@ -608,7 +658,7 @@
                 {eligibleFundingSystems}
                 {mineFunding}
                 onAdjustFunding={adjustFunding}
-                {combatSystems}
+                combatSystems={mapCombatSystems}
                 onCombatClick={(sysId) => { combatSystemId = sysId; }}
             />
 
@@ -734,14 +784,14 @@
         <p>Loading...</p>
     {/if}
 
-    {#if combatSystemId !== null && lastResolvedSnapshot}
+    {#if combatSystemId !== null && activeCombatSnapshot}
         {@const combatSystem = liveMapData.systems?.find(s => s.system_id === combatSystemId)}
-        {@const combatLogs = lastResolvedSnapshot.combat_logs.filter(l => l.system_id === combatSystemId)}
+        {@const combatLogs = activeCombatSnapshot.combat_logs.filter(l => l.system_id === combatSystemId)}
         <CombatModal
             system={combatSystem}
             logs={combatLogs}
             players={liveMapData.players}
-            turnId={lastResolvedSnapshot.turn_id}
+            turnId={activeCombatSnapshot.turn_id}
             onClose={() => { combatSystemId = null; }}
         />
     {/if}
