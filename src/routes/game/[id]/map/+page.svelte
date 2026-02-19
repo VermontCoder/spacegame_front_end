@@ -556,6 +556,7 @@
         animating = false;
         replayTurnIndex = 0;
         allResolvedTurns = [];
+        snapshotCache = {};
     }
 
     onDestroy(() => {
