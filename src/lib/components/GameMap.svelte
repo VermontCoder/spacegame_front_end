@@ -1,4 +1,6 @@
 <script>
+    import { holdRepeat } from '$lib/holdRepeat.js';
+
     let {
         systems = [],
         jumpLines = [],
@@ -823,13 +825,13 @@
                 >
                     <button
                         class="fund-btn"
-                        onclick={() => onAdjustFunding(sys.system_id, -1)}
+                        use:holdRepeat={() => onAdjustFunding(sys.system_id, -1)}
                         disabled={alloc <= 0}
                     >−</button>
                     <span class="fund-amount" class:funded={alloc > 0}>{alloc}</span>
                     <button
                         class="fund-btn"
-                        onclick={() => onAdjustFunding(sys.system_id, +1)}
+                        use:holdRepeat={() => onAdjustFunding(sys.system_id, +1)}
                         disabled={total >= 15 || alloc >= sys.materials}
                     >+</button>
                 </div>

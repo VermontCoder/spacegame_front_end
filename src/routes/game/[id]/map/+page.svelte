@@ -4,6 +4,7 @@
     import OrdersPanel from '$lib/components/OrdersPanel.svelte';
     import CombatModal from '$lib/components/CombatModal.svelte';
     import { getUser, apiFetch } from '$lib/auth.svelte.js';
+    import { holdRepeat } from '$lib/holdRepeat.js';
     import {
         getOrders, isOrdersLoading, isSubmitted,
         loadOrders, loadTurnStatus, createOrder, cancelOrder, submitTurn, resetOrderState, setSubmitted,
@@ -630,9 +631,9 @@
                         {/if}
                         {#if myYardAtSelected}
                             <div class="build-ships-row">
-                                <button class="qty-btn" onclick={() => buildShipsQty = Math.max(1, buildShipsQty - 1)} disabled={buildShipsQty <= 1}>−</button>
+                                <button class="qty-btn" use:holdRepeat={() => buildShipsQty = Math.max(1, buildShipsQty - 1)} disabled={buildShipsQty <= 1}>−</button>
                                 <span class="qty-value">{buildShipsQty}</span>
-                                <button class="qty-btn" onclick={() => buildShipsQty = Math.min(buildShipsQty + 1, maxBuildShips)} disabled={buildShipsQty >= maxBuildShips}>+</button>
+                                <button class="qty-btn" use:holdRepeat={() => buildShipsQty = Math.min(buildShipsQty + 1, maxBuildShips)} disabled={buildShipsQty >= maxBuildShips}>+</button>
                                 <button class="action-btn build-ships-btn" onclick={handleBuildShips} disabled={maxBuildShips < 1}>
                                     Build Ship{buildShipsQty !== 1 ? 's' : ''}
                                 </button>
@@ -655,9 +656,9 @@
                             <strong>{moveSourceSystem?.name}</strong> → <strong>{moveTargetSystem?.name}</strong>
                         </p>
                         <div class="move-qty-row">
-                            <button class="qty-btn" onclick={() => adjustMoveQuantity(-1)} disabled={moveQuantity <= 1}>−</button>
+                            <button class="qty-btn" use:holdRepeat={() => adjustMoveQuantity(-1)} disabled={moveQuantity <= 1}>−</button>
                             <span class="qty-value">{moveQuantity}</span>
-                            <button class="qty-btn" onclick={() => adjustMoveQuantity(1)} disabled={moveQuantity >= maxMoveQuantity}>+</button>
+                            <button class="qty-btn" use:holdRepeat={() => adjustMoveQuantity(1)} disabled={moveQuantity >= maxMoveQuantity}>+</button>
                             <span class="qty-of">of {maxMoveQuantity}</span>
                         </div>
                         <button class="action-btn confirm-move-btn" onclick={confirmMove}>Confirm Move</button>
