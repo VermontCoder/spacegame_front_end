@@ -318,7 +318,7 @@
     );
     let mapCombatSystems = $derived(
         replayMode && replaySnapshot
-            ? [...new Set(replaySnapshot.combat_logs.map(l => l.system_id))]
+            ? [...new Set((replaySnapshot.combat_logs ?? []).map(l => l.system_id))]
             : combatSystems
     );
     let activeCombatSnapshot = $derived(
@@ -594,6 +594,7 @@
         await loadCachedSnapshot(gameId, 0);
         if (latestTurnId > 0) await loadCachedSnapshot(gameId, latestTurnId);
         replaySnapshot = snapshotCache[latestTurnId] ?? snapshotCache[0] ?? null;
+        if (!replaySnapshot) return;
         replayMode = true;
     }
 
@@ -786,7 +787,7 @@
 
     {#if combatSystemId !== null && activeCombatSnapshot}
         {@const combatSystem = liveMapData.systems?.find(s => s.system_id === combatSystemId)}
-        {@const combatLogs = activeCombatSnapshot.combat_logs.filter(l => l.system_id === combatSystemId)}
+        {@const combatLogs = (activeCombatSnapshot.combat_logs ?? []).filter(l => l.system_id === combatSystemId)}
         <CombatModal
             system={combatSystem}
             logs={combatLogs}
