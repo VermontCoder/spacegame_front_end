@@ -419,8 +419,8 @@
                 label,
                 left: fromScreen.x - shipW / 2 - 2,
                 top: fromScreen.y - shipH / 2,
-                translateX: animationActive ? toScreen.x - fromScreen.x : 0,
-                translateY: animationActive ? toScreen.y - fromScreen.y : 0,
+                toDx: toScreen.x - fromScreen.x,
+                toDy: toScreen.y - fromScreen.y,
                 width: shipW,
                 height: shipH,
                 fontSize: Math.max(9, shipH * 0.55),
@@ -809,8 +809,8 @@
                 height: {chit.height}px;
                 background: {playerColor(chit.playerIndex)};
                 font-size: {chit.fontSize}px;
-                transform: translate({chit.translateX}px, {chit.translateY}px);
-                transition: {animationActive ? 'transform 2s ease-in-out' : 'none'};
+                transform: translate({animationActive ? chit.toDx : 0}px, {animationActive ? chit.toDy : 0}px);
+                transition: transform 2s ease-in-out;
                 z-index: 6;
             "
         >
