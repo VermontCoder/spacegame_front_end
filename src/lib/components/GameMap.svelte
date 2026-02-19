@@ -407,13 +407,15 @@
         const allMoveOrders = orders.filter(o => o.order_type === 'move_ships');
 
         // Detect bidirectional pairs (A→B and B→A both present)
-        const pairKeys = new Set();
-        const biPairs = new Set();
-        for (const o of allMoveOrders) {
-            const key = `${Math.min(o.source_system_id, o.target_system_id)}-${Math.max(o.source_system_id, o.target_system_id)}`;
-            if (pairKeys.has(key)) biPairs.add(key);
-            else pairKeys.add(key);
-        }
+        // Collect all directed pairs
+        const directedKeys = new Set(allMoveOrders.map(o => `${o.source_system_id}-${o.target_system_id}`));
+
+        // A route is bidirectional only if BOTH A→B and B→A exist
+        const biPairs = new Set(
+            allMoveOrders
+                .filter(o => directedKeys.has(`${o.target_system_id}-${o.source_system_id}`))
+                .map(o => `${Math.min(o.source_system_id, o.target_system_id)}-${Math.max(o.source_system_id, o.target_system_id)}`)
+        );
 
         return allMoveOrders
             .map(o => {
