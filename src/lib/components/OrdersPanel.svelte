@@ -95,13 +95,17 @@
     .orders-panel {
         background: var(--color-bg-panel);
         border: 1px solid var(--color-border);
-        border-radius: 8px;
+        border-radius: 20px;
         padding: 1rem;
     }
 
     h2 {
         margin: 0 0 0.5rem;
-        font-size: 1.1rem;
+        font-family: var(--font-display);
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
         color: var(--color-accent);
     }
 
@@ -135,7 +139,7 @@
         align-items: center;
         gap: 0.4rem;
         padding: 0.35rem 0.5rem;
-        border-radius: 4px;
+        border-radius: 8px;
         border: 1px solid transparent;
         font-size: 0.85rem;
         transition: background 0.15s, border-color 0.15s;
@@ -144,7 +148,7 @@
     .order-item:hover,
     .order-item.hovered {
         background: var(--color-bg-panel-hover);
-        border-color: var(--color-border-light);
+        border-color: var(--color-border);
     }
 
     .order-icon {
@@ -176,14 +180,17 @@
         display: block;
         width: 100%;
         margin-top: 0.75rem;
-        padding: 0.5rem;
-        background: var(--color-accent);
-        color: #000;
+        padding: 0.6rem;
+        background: var(--gradient-cta);
+        color: #0f0f23;
         border: none;
-        border-radius: 6px;
-        font-weight: 600;
+        border-radius: 50px;
+        font-family: var(--font-ui);
+        font-weight: 700;
         cursor: pointer;
         font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
 
     .submit-btn:hover:not(:disabled) {
