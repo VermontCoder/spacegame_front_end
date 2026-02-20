@@ -34,6 +34,10 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: rgba(15, 15, 35, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(139, 92, 246, 0.20);
+    padding: 0 1rem;
   }
 
   nav {
@@ -77,11 +81,12 @@
     height: 100%;
     align-items: center;
     padding: 0 0.5rem;
-    color: var(--color-text);
-    font-weight: 700;
-    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.9rem;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-decoration: none;
     transition: color 0.2s linear;
   }
@@ -99,23 +104,28 @@
 
   .username {
     color: var(--color-text-muted);
-    font-size: 0.85rem;
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
   }
 
   .logout-btn {
-    padding: 4px 12px;
+    padding: 4px 14px;
     background: transparent;
     color: var(--color-text-muted);
-    border: 1px solid var(--color-border-light);
-    border-radius: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: 50px;
     cursor: pointer;
-    font-size: 0.75rem;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
   }
 
   .logout-btn:hover {
-    color: var(--color-text);
-    border-color: var(--color-text);
+    color: var(--color-accent);
+    border-color: var(--color-accent);
   }
 </style>
