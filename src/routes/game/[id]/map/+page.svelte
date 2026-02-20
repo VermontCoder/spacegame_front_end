@@ -948,6 +948,15 @@
 
     h1 {
         margin-bottom: 1rem;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 1.4rem;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        background: var(--gradient-cta);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
     .error {
@@ -958,18 +967,18 @@
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        background: rgba(52, 73, 94, 0.9);
-        border: 2px solid #f39c12;
-        border-radius: 8px;
+        background: rgba(139, 92, 246, 0.10);
+        border: 2px solid var(--color-accent);
+        border-radius: 12px;
         padding: 0.75rem 1.25rem;
         margin-bottom: 1rem;
         font-size: 1rem;
-        color: #e0e0e0;
+        color: var(--color-text);
     }
 
     .victory-banner.my-victory {
-        background: rgba(39, 174, 96, 0.2);
-        border-color: #2ecc71;
+        background: rgba(245, 158, 11, 0.10);
+        border-color: var(--color-accent);
     }
 
     .victory-icon {
@@ -998,18 +1007,32 @@
     .turn-indicator {
         background: var(--color-bg-panel);
         border: 1px solid var(--color-border);
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 0.5rem 1rem;
-        font-weight: bold;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 0.85rem;
         text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 2px;
         color: var(--color-accent);
     }
 
     .legend-panel, .actions-panel {
         background: var(--color-bg-panel);
         border: 1px solid var(--color-border);
-        border-radius: 8px;
+        border-radius: 20px;
         padding: 1rem;
+    }
+
+    .legend-panel h2 {
+        font-family: var(--font-display);
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--color-text-muted);
+        margin: 0 0 0.5rem;
     }
 
     .player-row {
@@ -1050,23 +1073,29 @@
     }
 
     .action-btn {
-        background: var(--color-bg-panel-hover);
-        border: 1px solid var(--color-border-light);
-        border-radius: 4px;
-        color: var(--color-text);
+        background: rgba(139, 92, 246, 0.10);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        color: var(--color-text-muted);
         padding: 0.35rem 0.6rem;
         cursor: pointer;
+        font-family: var(--font-ui);
         font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
         text-align: left;
     }
 
     .action-btn:hover {
-        background: var(--color-border);
+        background: var(--color-bg-panel-hover);
+        color: var(--color-text);
     }
 
     .move-btn {
         color: var(--color-accent);
         border-color: var(--color-accent);
+        background: rgba(245, 158, 11, 0.08);
     }
 
     .move-prompt {
@@ -1084,6 +1113,7 @@
     .cancel-move {
         color: var(--color-error);
         border-color: var(--color-error);
+        background: rgba(231, 76, 60, 0.08);
     }
 
     .move-remaining {
@@ -1107,8 +1137,8 @@
 
     .qty-btn {
         background: var(--color-bg-panel-hover);
-        border: 1px solid var(--color-border-light);
-        border-radius: 3px;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
         color: var(--color-text);
         font-size: 16px;
         font-weight: bold;
@@ -1153,6 +1183,7 @@
     .confirm-move-btn {
         color: var(--color-accent);
         border-color: var(--color-accent);
+        background: rgba(245, 158, 11, 0.08);
     }
 
     .funding-title {
@@ -1180,6 +1211,7 @@
     .issue-mine-btn {
         color: #2ecc71;
         border-color: #2ecc71;
+        background: rgba(46, 204, 113, 0.08);
     }
 
     .issue-mine-btn:disabled {
@@ -1216,23 +1248,28 @@
     }
 
     .history-btn {
-        background: var(--color-bg-panel);
-        border: 1px solid var(--color-border-light);
-        border-radius: 4px;
-        color: var(--color-text-dim);
+        background: rgba(139, 92, 246, 0.08);
+        border: 1px solid var(--color-border);
+        border-radius: 50px;
+        color: var(--color-text-muted);
         padding: 0.3rem 0.6rem;
         cursor: pointer;
-        font-size: 0.8rem;
+        font-family: var(--font-ui);
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
         width: 100%;
     }
     .history-btn:hover {
         background: var(--color-bg-panel-hover);
+        color: var(--color-text);
     }
 
     .replay-panel {
         background: var(--color-bg-panel);
         border: 1px solid var(--color-border);
-        border-radius: 8px;
+        border-radius: 20px;
         padding: 0.75rem;
         display: flex;
         flex-direction: column;
@@ -1250,16 +1287,18 @@
     }
     .exit-replay-btn {
         background: none;
-        border: 1px solid var(--color-border-light);
-        border-radius: 4px;
-        color: var(--color-text-dim);
-        padding: 0.2rem 0.5rem;
+        border: 1px solid var(--color-border);
+        border-radius: 50px;
+        color: var(--color-text-muted);
+        padding: 0.2rem 0.6rem;
         cursor: pointer;
-        font-size: 0.75rem;
+        font-family: var(--font-ui);
+        font-size: 0.8rem;
+        font-weight: 600;
     }
     .exit-replay-btn:hover {
-        color: var(--color-text);
-        border-color: var(--color-text);
+        color: var(--color-accent);
+        border-color: var(--color-accent);
     }
     .replay-nav {
         display: flex;
@@ -1268,8 +1307,8 @@
     }
     .nav-btn {
         background: var(--color-bg-panel-hover);
-        border: 1px solid var(--color-border-light);
-        border-radius: 4px;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
         color: var(--color-text);
         width: 28px;
         height: 28px;
@@ -1296,14 +1335,17 @@
         display: block;
     }
     .play-btn {
-        background: var(--color-bg-panel-hover);
+        background: rgba(245, 158, 11, 0.10);
         border: 1px solid var(--color-accent);
-        border-radius: 4px;
+        border-radius: 50px;
         color: var(--color-accent);
         padding: 0.4rem;
         cursor: pointer;
+        font-family: var(--font-ui);
         font-size: 0.85rem;
-        font-weight: 600;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
         width: 100%;
     }
     .play-btn:disabled {
@@ -1311,6 +1353,6 @@
         cursor: not-allowed;
     }
     .play-btn:not(:disabled):hover {
-        background: rgba(52, 152, 219, 0.15);
+        background: rgba(245, 158, 11, 0.20);
     }
 </style>
