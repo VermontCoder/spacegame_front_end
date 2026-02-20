@@ -614,15 +614,22 @@
 
     h1 {
         text-align: center;
-        color: var(--color-accent);
+        font-family: var(--font-display);
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        background: var(--gradient-cta);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
     .mode-toggle {
         display: flex;
         gap: 0;
         margin-bottom: 1.5rem;
-        border: 1px solid var(--color-border-light);
-        border-radius: 4px;
+        border: 1px solid var(--color-border);
+        border-radius: 15px;
         overflow: hidden;
     }
 
@@ -633,15 +640,16 @@
         color: var(--color-text-muted);
         border: none;
         cursor: pointer;
-        font-size: 0.9rem;
+        font-family: var(--font-ui);
+        font-size: 0.95rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
 
     .mode-toggle button.active {
-        background: var(--color-bg-panel);
-        color: var(--color-accent);
+        background: var(--gradient-cta);
+        color: #0f0f23;
     }
 
     form {
@@ -654,17 +662,18 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
-        font-size: 0.85rem;
+        font-family: var(--font-ui);
+        font-size: 0.9rem;
         color: var(--color-text-muted);
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
     }
 
     .auth-container input {
         padding: 10px 12px;
-        background: var(--color-bg-panel);
-        border: 1px solid var(--color-border-light);
-        border-radius: 4px;
+        background: rgba(139, 92, 246, 0.05);
+        border: 2px solid rgba(139, 92, 246, 0.30);
+        border-radius: 12px;
         color: var(--color-text);
         font-size: 1rem;
         text-transform: none;
@@ -673,23 +682,26 @@
 
     .auth-container input:focus {
         outline: none;
-        border-color: var(--color-accent);
+        border-color: var(--color-accent-violet);
     }
 
     form button[type="submit"] {
-        padding: 10px;
-        background: var(--color-link);
-        color: white;
+        padding: 12px;
+        background: var(--gradient-cta);
+        color: #0f0f23;
         border: none;
-        border-radius: 4px;
+        border-radius: 50px;
         cursor: pointer;
+        font-family: var(--font-ui);
         font-size: 1rem;
-        font-weight: 600;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
         margin-top: 0.5rem;
     }
 
     form button[type="submit"]:hover {
-        background: #2980b9;
+        filter: brightness(1.1);
     }
 
     form button[type="submit"]:disabled {
