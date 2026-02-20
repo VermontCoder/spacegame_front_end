@@ -122,7 +122,7 @@
 
     .combat-modal {
         position: relative;
-        background: #1a1a2e;
+        background: var(--color-bg-mid);
         border: 1px solid rgba(139, 92, 246, 0.40);
         border-radius: 20px;
         padding: 1.5rem 2rem;
