@@ -360,6 +360,14 @@
     .lobby-header h1 {
         margin: 0;
         font-size: 1.5rem;
+        font-family: var(--font-display);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        background: var(--gradient-cta);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
     .lobby-body {
@@ -382,29 +390,29 @@
         align-items: center;
         gap: 1.5rem;
         padding: 10px 16px;
-        border-radius: 6px;
-        border: 1px solid var(--color-border-light);
+        border-radius: 12px;
+        border: 1px solid var(--color-border);
     }
 
     .game-row.my-game {
-        border-left: 3px solid #d4a040;
-        background: rgba(212, 160, 64, 0.06);
+        border-left: 3px solid var(--color-accent);
+        background: rgba(245, 158, 11, 0.06);
     }
 
     .game-row.joinable-game {
-        border-left: 3px solid #4a90d9;
-        background: rgba(74, 144, 217, 0.06);
+        border-left: 3px solid var(--color-accent-violet);
+        background: rgba(139, 92, 246, 0.06);
     }
 
     .game-row.other-game {
-        border-left: 3px solid #6b7280;
-        background: rgba(107, 114, 128, 0.04);
+        border-left: 3px solid rgba(139, 92, 246, 0.30);
+        background: rgba(139, 92, 246, 0.03);
     }
 
     .game-row.selected {
-        outline: 2px solid var(--color-accent, #d4a040);
+        outline: 2px solid var(--color-accent);
         outline-offset: -2px;
-        background: rgba(212, 160, 64, 0.12);
+        background: rgba(245, 158, 11, 0.12);
     }
 
     .game-name {
@@ -434,10 +442,10 @@
         white-space: nowrap;
     }
 
-    .badge-open { background: #2d4a1e; color: #86d95a; }
-    .badge-active { background: #1e3a4a; color: #5ab8d9; }
-    .badge-completed { background: #3a3a3a; color: #aaa; }
-    .badge-map_generated { background: #1e3a4a; color: #5ab8d9; }
+    .badge-open        { background: rgba(245, 158, 11, 0.15); color: var(--color-accent);        border: 1px solid rgba(245,158,11,0.40); }
+    .badge-active      { background: rgba(139, 92, 246, 0.15); color: var(--color-accent-violet); border: 1px solid rgba(139,92,246,0.40); }
+    .badge-completed   { background: rgba(139, 92, 246, 0.08); color: var(--color-text-dim);       border: 1px solid var(--color-border); }
+    .badge-map_generated { background: rgba(139, 92, 246, 0.15); color: var(--color-accent-violet); border: 1px solid rgba(139,92,246,0.40); }
 
     .game-actions {
         flex-shrink: 0;
@@ -460,22 +468,28 @@
     .detail-panel {
         width: 220px;
         flex-shrink: 0;
-        background: var(--color-bg-panel, #1e1e2e);
-        border: 1px solid var(--color-border-light);
-        border-radius: 8px;
+        background: var(--color-bg-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 20px;
         padding: 1rem 1.25rem;
     }
 
     .detail-panel h3 {
         margin: 0 0 0.25rem;
-        font-size: 1rem;
+        font-family: var(--font-display);
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--color-accent);
     }
 
     .detail-panel h4 {
         margin: 0.75rem 0 0.25rem;
+        font-family: var(--font-ui);
         font-size: 0.8rem;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         color: var(--color-text-muted);
     }
 
@@ -524,26 +538,26 @@
         cursor: not-allowed;
     }
 
-    .btn-create { background: #d4a040; color: #1a1a2e; }
-    .btn-create:hover:not(:disabled) { background: #e0b050; }
+    .btn-create { background: var(--gradient-cta); color: #0f0f23; border-radius: 50px; }
+    .btn-create:hover:not(:disabled) { filter: brightness(1.1); }
 
-    .btn-join { background: #4a90d9; color: white; }
-    .btn-join:hover { background: #5aa0e9; }
+    .btn-join { background: rgba(139, 92, 246, 0.20); color: var(--color-accent-violet); border: 1px solid rgba(139,92,246,0.50); border-radius: 50px; }
+    .btn-join:hover { background: rgba(139, 92, 246, 0.35); }
 
-    .btn-enter { background: #5ab8d9; color: #1a1a2e; text-decoration: none; padding: 6px 16px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
-    .btn-enter:hover { background: #6ac8e9; }
+    .btn-enter { background: var(--gradient-cta); color: #0f0f23; text-decoration: none; padding: 6px 16px; border-radius: 50px; font-weight: 700; font-size: 0.85rem; }
+    .btn-enter:hover { filter: brightness(1.1); }
 
     .btn-view { color: var(--color-text-muted); text-decoration: none; font-size: 0.85rem; }
     .btn-view:hover { color: var(--color-text); }
 
-    .btn-spectate { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border-light); text-decoration: none; padding: 6px 16px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
-    .btn-spectate:hover { color: var(--color-text); border-color: var(--color-text); }
+    .btn-spectate { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); text-decoration: none; padding: 6px 16px; border-radius: 50px; font-size: 0.85rem; font-weight: 600; }
+    .btn-spectate:hover { color: var(--color-text); border-color: var(--color-border-light); }
 
-    .btn-express { background: #e07040; color: white; }
-    .btn-express:hover:not(:disabled) { background: #f08050; }
+    .btn-express { background: rgba(236, 72, 153, 0.20); color: var(--color-accent-pink); border: 1px solid rgba(236,72,153,0.50); border-radius: 50px; }
+    .btn-express:hover:not(:disabled) { background: rgba(236, 72, 153, 0.35); }
 
-    .btn-cancel { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border-light); }
-    .btn-cancel:hover { color: var(--color-text); border-color: var(--color-text); }
+    .btn-cancel { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 50px; }
+    .btn-cancel:hover { color: var(--color-text); border-color: var(--color-border-light); }
 
     /* --- Modal --- */
     .modal-backdrop {
@@ -557,9 +571,9 @@
     }
 
     .modal {
-        background: var(--color-bg-panel, #1e1e2e);
-        border: 1px solid var(--color-border-light);
-        border-radius: 8px;
+        background: var(--color-bg-mid);
+        border: 1px solid var(--color-border);
+        border-radius: 20px;
         padding: 1.5rem;
         width: 360px;
         display: flex;
@@ -569,25 +583,31 @@
 
     .modal h2 {
         margin: 0;
-        font-size: 1.2rem;
+        font-family: var(--font-display);
+        font-size: 1.1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--color-accent);
     }
 
     .modal label {
         display: flex;
         flex-direction: column;
         gap: 4px;
-        font-size: 0.85rem;
+        font-family: var(--font-ui);
+        font-size: 0.9rem;
         color: var(--color-text-muted);
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
     }
 
     .modal input,
     .modal select {
         padding: 8px 10px;
-        background: var(--color-bg, #12121e);
-        border: 1px solid var(--color-border-light);
-        border-radius: 4px;
+        background: rgba(139, 92, 246, 0.05);
+        border: 2px solid rgba(139, 92, 246, 0.30);
+        border-radius: 12px;
         color: var(--color-text);
         font-size: 1rem;
         text-transform: none;
@@ -597,7 +617,7 @@
     .modal input:focus,
     .modal select:focus {
         outline: none;
-        border-color: var(--color-accent);
+        border-color: var(--color-accent-violet);
     }
 
     .modal-actions {
