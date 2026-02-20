@@ -123,14 +123,14 @@
     .combat-modal {
         position: relative;
         background: #1a1a2e;
-        border: 1px solid #333;
-        border-radius: 10px;
+        border: 1px solid rgba(139, 92, 246, 0.40);
+        border-radius: 20px;
         padding: 1.5rem 2rem;
         min-width: 400px;
         max-width: 550px;
         max-height: 80vh;
         overflow-y: auto;
-        color: #e0e0e0;
+        color: var(--color-text);
     }
 
     .close-btn {
@@ -139,20 +139,24 @@
         right: 12px;
         background: none;
         border: none;
-        color: #888;
+        color: var(--color-text-muted);
         font-size: 1.5rem;
         cursor: pointer;
         line-height: 1;
     }
 
     .close-btn:hover {
-        color: #fff;
+        color: var(--color-accent);
     }
 
     .modal-title {
         margin: 0 0 1rem;
-        font-size: 1.1rem;
-        color: #e0e0e0;
+        font-family: var(--font-display);
+        font-size: 1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--color-accent);
     }
 
     .round-section {
@@ -161,9 +165,13 @@
 
     .round-heading {
         margin: 0 0 0.4rem;
-        font-size: 0.9rem;
-        color: #aaa;
-        border-bottom: 1px solid #333;
+        font-family: var(--font-ui);
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-muted);
+        border-bottom: 1px solid var(--color-border);
         padding-bottom: 0.2rem;
     }
 
@@ -176,10 +184,12 @@
     .combat-table th {
         text-align: left;
         padding: 0.3rem 0.5rem;
-        color: #888;
+        color: var(--color-text-muted);
+        font-family: var(--font-ui);
         font-weight: 600;
         font-size: 0.75rem;
         text-transform: uppercase;
+        letter-spacing: 0.06em;
     }
 
     .combat-table td {
@@ -209,13 +219,17 @@
     .result-section {
         margin-top: 0.5rem;
         padding-top: 0.75rem;
-        border-top: 1px solid #444;
+        border-top: 1px solid var(--color-border);
     }
 
     .result-heading {
         margin: 0 0 0.4rem;
-        font-size: 0.9rem;
-        color: #aaa;
+        font-family: var(--font-ui);
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-text-muted);
     }
 
     .result-text {
