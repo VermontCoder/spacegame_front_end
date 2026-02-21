@@ -26,7 +26,7 @@
     let newGamePlayers = $state(4);
     let creating = $state(false);
 
-    let isDev = $derived(env.FAST_API_URL?.includes('localhost') || env.FAST_API_URL?.includes('127.0.0.1'));
+    let canExpressStart = $derived(user?.username === 'test_user_0');
 
     let myGames = $derived(games.filter(g => g.is_member));
     let joinableGames = $derived(games.filter(g => !g.is_member && g.status === 'open'));
@@ -271,7 +271,7 @@
                     <button class="btn btn-create" onclick={createGame} disabled={creating}>
                         {creating ? 'Creating...' : 'Create Game'}
                     </button>
-                    {#if isDev}
+                    {#if canExpressStart}
                         <button class="btn btn-express" onclick={expressStart} disabled={creating}>
                             {creating ? 'Starting...' : 'Express Start'}
                         </button>
