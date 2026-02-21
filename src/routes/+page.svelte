@@ -282,8 +282,8 @@
         </div>
     {/if}
 {:else}
+    <div class="login-bg">
     <div class="auth-container">
-        <h1>SpaceGame</h1>
 
         <div class="mode-toggle">
             <button class:active={mode === 'login'} onclick={() => { mode = 'login'; error = ''; }}>
@@ -328,6 +328,7 @@
                 {submitting ? 'Please wait...' : mode === 'login' ? 'Log In' : 'Register'}
             </button>
         </form>
+    </div>
     </div>
 {/if}
 
@@ -627,9 +628,25 @@
     }
 
     /* --- Auth --- */
+    .login-bg {
+        min-height: calc(100vh - 60px);
+        background-image: url('/img/title.jpg');
+        background-size: cover;
+        background-position: center -75px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+
     .auth-container {
+        width: 100%;
         max-width: 360px;
-        margin: 2rem auto;
+        background: rgba(15, 15, 35, 0.85);
+        border: 1px solid var(--color-border);
+        border-radius: 20px;
+        padding: 2rem;
+        backdrop-filter: blur(8px);
     }
 
     h1 {
