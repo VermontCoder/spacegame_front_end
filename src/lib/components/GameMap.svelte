@@ -217,7 +217,16 @@
         return { x: cx - w / 2, y: cy - h / 2, w, h };
     }
 
-    let initialViewBox = $derived(computeFitViewBox(systems));
+    let initialViewBox = $derived.by(() => {
+        if (currentPlayerIndex !== null) {
+            const homeSystem = systems.find(s => s.is_home_system && s.owner_player_index === currentPlayerIndex);
+            if (homeSystem) {
+                const clusterSystems = systems.filter(s => s.cluster_id === homeSystem.cluster_id);
+                return computeFitViewBox(clusterSystems);
+            }
+        }
+        return computeFitViewBox(systems);
+    });
 
     // Pan/zoom state
     let viewBox = $state(null);
@@ -1110,7 +1119,7 @@
 
     .tooltip {
         position: absolute;
-        background: var(--color-bg-panel);
+        background: #000;
         border: 1px solid var(--color-border-light);
         border-radius: 6px;
         padding: 6px 10px;

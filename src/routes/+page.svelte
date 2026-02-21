@@ -621,6 +621,11 @@
         border-color: var(--color-accent-violet);
     }
 
+    .modal select option {
+        background: #1a1a2e;
+        color: #e0e0e0;
+    }
+
     .modal-actions {
         display: flex;
         gap: 8px;
