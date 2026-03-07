@@ -150,6 +150,27 @@
         }
     }
 
+    /** @param {number} gameId @param {string} gameName */
+    async function deleteGame(gameId, gameName) {
+        if (!window.confirm(`Delete "${gameName}"? This cannot be undone.`)) return;
+        lobbyError = '';
+        try {
+            const res = await apiFetch(`/games/${gameId}`, { method: 'DELETE' });
+            if (res.ok) {
+                if (selectedGameId === gameId) {
+                    selectedGameId = null;
+                    selectedPlayers = [];
+                }
+                await loadGames();
+            } else {
+                const data = await res.json();
+                lobbyError = data.detail || 'Failed to delete game';
+            }
+        } catch {
+            lobbyError = 'Failed to delete game';
+        }
+    }
+
     async function handleSubmit() {
         error = '';
         submitting = true;
@@ -198,6 +219,9 @@
                                 {:else}
                                     <a href="/game/{game.game_id}/map" class="btn btn-view">View</a>
                                 {/if}
+                                {#if canExpressStart}
+                                    <button class="btn btn-danger" onclick={() => deleteGame(game.game_id, game.name)}>Delete</button>
+                                {/if}
                             </span>
                         </div>
                     {/each}
@@ -209,6 +233,9 @@
                             <span class="game-creator">by {game.creator_username}</span>
                             <span class="game-actions">
                                 <button class="btn btn-join" onclick={() => joinGame(game.game_id)}>Join</button>
+                                {#if canExpressStart}
+                                    <button class="btn btn-danger" onclick={() => deleteGame(game.game_id, game.name)}>Delete</button>
+                                {/if}
                             </span>
                         </div>
                     {/each}
@@ -221,6 +248,9 @@
                             <span class="game-actions">
                                 {#if game.status === 'active' || game.status === 'map_generated' || game.status === 'completed'}
                                     <a href="/game/{game.game_id}/map" class="btn btn-spectate">Spectate</a>
+                                {/if}
+                                {#if canExpressStart}
+                                    <button class="btn btn-danger" onclick={() => deleteGame(game.game_id, game.name)}>Delete</button>
                                 {/if}
                             </span>
                         </div>
@@ -559,6 +589,9 @@
 
     .btn-cancel { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 50px; }
     .btn-cancel:hover { color: var(--color-text); border-color: var(--color-border-light); }
+
+    .btn-danger { background: rgba(231, 76, 60, 0.20); color: #e74c3c; border: 1px solid rgba(231,76,60,0.50); border-radius: 50px; }
+    .btn-danger:hover { background: rgba(231, 76, 60, 0.35); }
 
     /* --- Modal --- */
     .modal-backdrop {
