@@ -30,7 +30,7 @@
     let liveMapData = $state(mapData);
     let lastResolvedSnapshot = $state(null);
     let combatSystemId = $state(null);
-    let pollingInterval = $state(null);
+    let pollingInterval = null;
 
     // Phase 4: replay state
     let replayMode = $state(false);
@@ -42,7 +42,7 @@
     let newStructures = $state([]);      // structures in post-state but not pre-state (for fade-in)
     let animationActive = $state(false); // true: CSS transform transition fires on transit chits
     let animating = $state(false);       // true while playTurn() is running
-    let replayAborted = $state(false);   // set true in exitReplayMode() to abort mid-animation
+    let replayAborted = false;   // set true in exitReplayMode() to abort mid-animation
 
     const combatSystems = $derived(
         lastResolvedSnapshot
@@ -524,13 +524,14 @@
 
     async function refreshAfterResolution() {
         const resolvedTurnId = turnId;
-        // Fetch updated map data
-        const res = await apiFetch(`/games/${gameId}/map`);
+        // Fetch updated map data and snapshot in parallel
+        const [res, snap] = await Promise.all([
+            apiFetch(`/games/${gameId}/map`),
+            loadSnapshot(gameId, resolvedTurnId),
+        ]);
         if (res.ok) {
             liveMapData = await res.json();
         }
-        // Load snapshot of the turn that just resolved (for combat data)
-        const snap = await loadSnapshot(gameId, resolvedTurnId);
         lastResolvedSnapshot = snap;
         // Reset orders for the new turn
         resetOrderState();
@@ -737,6 +738,7 @@
                 structures={mapStructures}
                 players={liveMapData.players ?? []}
                 orders={mapOrders}
+                {selectedSystem}
                 {moveSourceSystem}
                 {validMoveTargets}
                 {hoveredOrderId}

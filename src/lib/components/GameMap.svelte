@@ -8,6 +8,7 @@
         structures = [],
         players = [],
         orders = [],
+        selectedSystem = null,
         moveSourceSystem = null,
         validMoveTargets = new Set(),
         hoveredOrderId = null,
@@ -37,7 +38,7 @@
     );
 
     // Ships grouped by system_id
-    let shipsBySystem = $derived(() => {
+    let shipsBySystem = $derived.by(() => {
         const map = {};
         for (const sh of ships) {
             if (!map[sh.system_id]) map[sh.system_id] = [];
@@ -47,7 +48,7 @@
     });
 
     // Structures grouped by system_id
-    let structsBySystem = $derived(() => {
+    let structsBySystem = $derived.by(() => {
         const map = {};
         for (const st of structures) {
             if (!map[st.system_id]) map[st.system_id] = [];
@@ -177,10 +178,8 @@
 
     // Hover and selection state
     let hoveredSystem = $state(null);
-    let selectedSystem = $state(null);
 
     function handleClick(system) {
-        selectedSystem = system;
         onSelectSystem(system);
     }
 
@@ -359,8 +358,8 @@
 
     // Reactive chit data: combine system positions with ship/structure data
     let chitData = $derived.by(() => {
-        const shipsMap = shipsBySystem();
-        const structsMap = structsBySystem();
+        const shipsMap = shipsBySystem;
+        const structsMap = structsBySystem;
         const result = [];
 
         for (const sys of systems) {
@@ -977,8 +976,8 @@
 
     <!-- Tooltip overlay (HTML positioned over SVG) -->
     {#if hoveredSystem}
-        {@const sysShips = shipsBySystem()[hoveredSystem.system_id] || []}
-        {@const sysStructs = structsBySystem()[hoveredSystem.system_id] || []}
+        {@const sysShips = shipsBySystem[hoveredSystem.system_id] || []}
+        {@const sysStructs = structsBySystem[hoveredSystem.system_id] || []}
         {@const totalShips = sysShips.reduce((s, sh) => s + sh.count, 0)}
         {@const hasMine = sysStructs.some(st => st.structure_type === 'mine')}
         {@const hasYard = sysStructs.some(st => st.structure_type === 'shipyard')}
